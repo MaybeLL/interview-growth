@@ -1,0 +1,27 @@
+{
+  "name": "interview-growth",
+  "version": "0.5.0",
+  "description": "A private, evidence-based system for growing toward a target software role.",
+  "author": {
+    "name": "Interview Growth Contributors"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Interview Growth",
+    "shortDescription": "Build interview skill with isolated, evidence-backed goals.",
+    "longDescription": "Create isolated target-role goals, run adaptive mock interviews, track evidence-backed readiness, review real interviews, and protect local data with verified backups and portable exports.",
+    "developerName": "Interview Growth Contributors",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Create a new interview growth goal.",
+      "Select my current interview goal.",
+      "Show my evidence-backed readiness and next gaps."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

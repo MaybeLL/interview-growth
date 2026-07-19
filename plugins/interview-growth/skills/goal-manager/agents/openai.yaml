@@ -1,0 +1,4 @@
+interface:
+  display_name: "Goal Manager"
+  short_description: "Configure and version an isolated target role goal"
+  default_prompt: "Use $goal-manager to configure my current interview growth goal."

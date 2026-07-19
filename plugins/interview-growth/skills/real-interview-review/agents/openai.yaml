@@ -1,0 +1,4 @@
+interface:
+  display_name: "Real Interview Review"
+  short_description: "Capture real interviews and find coverage blind spots"
+  default_prompt: "Use $real-interview-review to review my latest real interview."

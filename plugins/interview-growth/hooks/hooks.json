@@ -1,0 +1,31 @@
+{
+  "description": "Validate storage and checkpoint active interviews before context compaction.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PYTHONPATH=\"$PLUGIN_ROOT/src\" uv run --no-editable --project \"$PLUGIN_ROOT\" python -m interview_growth.hook_cli healthcheck",
+            "timeout": 15,
+            "statusMessage": "Checking Interview Growth storage"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "manual|auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PYTHONPATH=\"$PLUGIN_ROOT/src\" uv run --no-editable --project \"$PLUGIN_ROOT\" python -m interview_growth.hook_cli checkpoint",
+            "timeout": 15,
+            "statusMessage": "Checkpointing active interview"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Question Bank"
+  short_description: "Capture and organize isolated interview questions"
+  default_prompt: "Use $question-bank to record this question in my current goal."
