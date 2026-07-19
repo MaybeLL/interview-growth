@@ -2,9 +2,9 @@
 
 Local Codex plugin foundation for evidence-based software interview growth.
 
-Version 0.5.0 provides:
+Version 0.6.0 provides:
 
-- a FastMCP STDIO server;
+- a structured JSON CLI with discoverable operation contracts;
 - a minimal goal registry;
 - one physically separate SQLite database per growth goal;
 - one current goal binding per Codex session;
@@ -27,11 +27,11 @@ Version 0.5.0 provides:
 - topic and capability readiness without a synthetic percentage score;
 - append-only evaluation disputes, blind reassessments, and explicit resolution;
 - gap snapshots, training prescriptions, and different-question retest schedules;
-- the `capability-dashboard` skill and nine M3 MCP tools.
+- the `capability-dashboard` skill and M3 CLI operations.
 - real interview reviews with question-bank candidates and coverage blind spots;
 - verified goal backups, safety-first restore, portable `.igx` export/import, and app-trash delete;
 - a repo-local Codex marketplace plus installation and four-week product-trial guides;
-- the `real-interview-review` skill and nine M4 MCP tools.
+- the `real-interview-review` skill and M4 CLI operations.
 
 See [installation](docs/INSTALLATION.md) and the [four-week trial](docs/FOUR_WEEK_TRIAL.md).
 
@@ -59,9 +59,11 @@ Use the returned goal ID with `select --session-id <session> --goal-id <goal>`.
 Selection is deliberately explicit: goal-scoped operations fail when a session
 has no current goal.
 
-The MCP server uses `INTERVIEW_GROWTH_DATA_DIR`, then `PLUGIN_DATA`, then
-`CLAUDE_PLUGIN_DATA` to locate persistent data. The CLI also accepts an explicit
-`--data-dir` for development and tests.
+The CLI uses one host-independent application-data location, with `INTERVIEW_GROWTH_DATA_DIR` or
+`--data-dir` as explicit development overrides. This keeps Skill calls and Hook calls on the same
+database even when the host exposes plugin-only environment variables. Skills invoke domain
+operations through `interview-growth call`, passing one JSON object on stdin and receiving a stable
+`{ok,data,error}` envelope.
 
 ## Data layout
 

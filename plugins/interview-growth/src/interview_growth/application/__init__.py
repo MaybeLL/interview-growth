@@ -1,4 +1,4 @@
-"""Application services exposed by CLI and MCP adapters."""
+"""Application services exposed through the structured CLI."""
 
 from .context import ContextPacket, ContextService
 from .goals import DoctorReport, GoalService

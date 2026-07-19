@@ -1,4 +1,4 @@
-"""Pydantic contracts shared by MCP and CLI adapters."""
+"""Pydantic contracts for the structured CLI and application services."""
 
 from __future__ import annotations
 

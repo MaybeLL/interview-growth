@@ -60,7 +60,7 @@ MVP 聚焦程序员求职面试。底层领域模型保留扩展至日语、写�
 2. **证据优先于分数**：任何等级都必须能追溯到原始回答和评价依据。
 3. **评估与教学分离**：辅助练习帮助学习，但不能直接证明独立能力。
 4. **历史不可静默改写**：标准、题目、回答和评价的历史含义必须稳定。
-5. **确定性核心、概率性边缘**：模型负责理解与生成；MCP 负责校验、事务和状态。
+5. **确定性核心、概率性边缘**：模型负责理解与生成；应用核心和结构化 CLI 负责校验、事务和状态。
 6. **上下文最小化**：只给当前角色完成当前任务所必需的数据。
 7. **先闭环，后平台化**：先证明能力提升，再建设 UI、云端和多宿主能力。
 
@@ -91,7 +91,7 @@ MVP 聚焦程序员求职面试。底层领域模型保留扩展至日语、写�
 - Claude Code 首发适配。
 - 完整求职 CRM、职位投递和联系人管理。
 - 应用级数据库加密与密钥恢复。
-- MCP 内部直接调用模型或持有模型 API Key。
+- CLI 或应用核心直接调用模型或持有模型 API Key。
 - 未经真实结果校准的 0–100 总体分数。
 - 完整 Event Sourcing。
 - 通过 Hook 解析任意聊天并猜测领域事件。
@@ -160,7 +160,7 @@ MVP 聚焦程序员求职面试。底层领域模型保留扩展至日语、写�
 ### 6.1 创建成长目标
 
 1. 用户提供岗位方向、目标级别、公司类型、时间计划，以及可选的 JD、简历和背景信息。
-2. 目标管理 Skill 调用 MCP 创建目标及独立数据库。
+2. 目标管理 Skill 调用结构化 CLI 创建目标及独立数据库。
 3. 宿主 Agent 生成目标标准草案：岗位画像、主题树、能力维度、要求级别、权重和关键门槛。
 4. 系统展示假设与信息缺口，用户修改或补充。
 5. 用户批准后形成目标标准 `v1`。
@@ -170,9 +170,9 @@ MVP 聚焦程序员求职面试。底层领域模型保留扩展至日语、写�
 
 1. 用户明确表达“记录／收录这道题”的意图。
 2. Question Bank Skill 搜索当前题库、主题名称和别名，提示明显重复。
-3. MCP 保存待完善题目。
+3. CLI 保存待完善题目。
 4. 宿主 Agent 生成主题映射、能力映射和评价规约。
-5. MCP 校验规约完整性，生成可评估题目版本。
+5. CLI 校验规约完整性，生成可评估题目版本。
 
 普通问句默认不入库；意图不清时必须先确认。
 
@@ -330,9 +330,9 @@ MVP 不展示总体百分制。能力面板以准备状态、关键门槛、证�
 │  Skills: 目标 / 题库 / 面试 / 教练 / 面板   │
 │  Roles: 面试官 / 评价者 / 教练               │
 └──────────────────┬──────────────────────────┘
-                   │ MCP tools/resources
+                   │ structured JSON commands
 ┌──────────────────▼──────────────────────────┐
-│ Python FastMCP Server                       │
+│ Python CLI + Operation Registry             │
 │  Application services                       │
 │  Domain invariants                          │
 │  Context assembler                          │
@@ -352,7 +352,9 @@ Hooks ──► 目标绑定校验 / 漏写检测 / 检查点 / 恢复
 
 **Skill**：定义自然语言入口、角色提示和工作流次序；不执行 SQL，不自行维护持久状态。
 
-**MCP**：唯一写入口；负责领域校验、版本、事务、幂等、查询、聚合和 Context Packet 生成。
+**CLI**：唯一 Agent 写入口；接收 JSON、校验操作契约并返回统一结果，不包含模型推理。
+
+**应用核心**：负责领域校验、版本、事务、幂等、查询、聚合和 Context Packet 生成。
 
 **Hook**：确定性的生命周期守卫；负责检测流程断裂，不通过 NLP 猜测业务语义。
 
@@ -371,11 +373,13 @@ Hooks ──► 目标绑定校验 / 漏写检测 / 检查点 / 恢复
 | `capability-dashboard` | 查看能力、进度、短板或下一步 | 展示准备状态、证据、趋势、缺口和行动建议 |
 | `real-interview-review` | 复盘真实面试 | 记录真实题目、反馈、结果并发现覆盖盲区 |
 
-所有写工作流都应显式调用 MCP。Skill 可以隐式触发，但题库写入在普通聊天中仍要求明确的用户收录意图。
+所有写工作流都应显式调用结构化 CLI。Skill 可以隐式触发，但题库写入在普通聊天中仍要求明确的用户收录意图。
 
-## 12. MCP 接口设计
+## 12. CLI 接口设计
 
-MCP 工具应以领域操作为单位，而不是暴露通用 SQL 或低级 CRUD。建议接口按以下模块组织。
+CLI 操作应以领域动作命名，不暴露通用 SQL 或低级数据库接口。Agent 使用
+`interview-growth call <operation>`，在标准输入中传入一个 JSON 对象，并接收稳定的
+`{ok,data,error}` JSON 信封。使用 `interview-growth operations <operation>` 可查询参数与输出契约。
 
 ### 12.1 目标与绑定
 
@@ -437,19 +441,13 @@ MCP 工具应以领域操作为单位，而不是暴露通用 SQL 或低级 CRUD
 - `gap_list`
 - `context_build`
 
-也可把稳定的只读结果暴露为 MCP Resources，例如：
+### 12.7 CLI 约束
 
-- `growth://registry`
-- `growth://goals/{goal_id}/dashboard`
-- `growth://goals/{goal_id}/context/{role}`
-
-### 12.7 工具约束
-
-- 每个写工具必须验证当前成长目标身份。
+- 每个写操作必须验证当前成长目标身份。
 - 每次写入携带幂等键和预期版本，防止重试重复和并发覆盖。
-- 工具返回结构化结果、创建的记录 ID、实际版本及下一步允许动作。
+- CLI 返回结构化结果、创建的记录 ID、实际版本及下一步允许动作。
 - 删除、合并、标准批准等高影响操作要求显式用户确认。
-- MCP 不提供任意文件路径写入、任意 SQL 或模型调用工具。
+- CLI 不提供任意 SQL、绕过目标绑定的写入或模型调用操作。
 
 ## 13. Context 管理
 
@@ -479,27 +477,25 @@ SQLite 是唯一领域真源。聊天历史、Markdown 报告和缓存均不可�
 
 ### 13.4 压缩与恢复
 
-上下文压缩前，Hook 检查是否存在未落库作答或未完成评价并写入检查点。压缩后通过 MCP 重新获取当前目标和会话 Packet。任何可生成的 Markdown 快照都允许删除并重建。
+上下文压缩前，Hook 检查活动面试并写入检查点。压缩后通过 CLI 重新获取当前目标和会话
+Packet。任何可生成的 Markdown 快照都允许删除并重建。
 
 ## 14. Hook 设计
 
-MVP 仅依赖 Codex 的命令型 Hook 基线，避免把业务正确性绑定到特定宿主的 prompt、agent 或 MCP-tool Hook。
+MVP 仅依赖 Codex 的命令型 Hook 基线，避免把业务正确性绑定到特定宿主的 prompt、agent
+或工具级 Hook。
 
 | 生命周期 | 守卫行为 |
 |---|---|
 | `SessionStart` | 检查插件数据目录和数据库版本；恢复本线程已有绑定，不自动选择全局默认目标 |
-| `PreToolUse` | 对领域写工具检查目标绑定、会话状态和危险操作确认 |
-| `PostToolUse` | 检查 MCP 失败、刷新可再生成缓存、记录恢复所需最小状态 |
 | `PreCompact` | 检查待落库作答、待评价记录和会话检查点 |
-| `PostCompact` | 注入最小恢复指令，要求从 MCP 重建 Context Packet |
-| `Stop` | 若面试存在未保存作答或未评价记录，阻止静默结束并触发恢复步骤 |
 
 Hook 不负责：
 
 - 识别任意聊天文本是否为题目；
 - 从自由文本推断当前目标；
 - 生成评分或训练建议；
-- 绕过 MCP 直接写 SQLite；
+- 绕过 CLI 和应用核心直接写 SQLite；
 - 将完整对话复制到日志或上下文。
 
 ## 15. 数据架构
@@ -507,7 +503,7 @@ Hook 不负责：
 ### 15.1 文件布局
 
 ```text
-PLUGIN_DATA/
+APPLICATION_DATA/
 ├── registry.sqlite
 ├── goals/
 │   ├── <goal-id>/goal.sqlite
@@ -584,20 +580,16 @@ PLUGIN_DATA/
 
 - Python 3.12
 - uv 与 `uv.lock`
-- 官方 MCP Python SDK / FastMCP v1，依赖限制 `<2`
 - Pydantic 结构化契约
 - 标准库 `sqlite3`
 - pytest、Ruff、Pyright 或 mypy
-- STDIO MCP transport
-
-MCP Python SDK v2 稳定后单独评估迁移，不在 MVP 中使用 alpha 版本。
+- argparse CLI、JSON stdin/stdout 协议
 
 ### 17.2 推荐代码结构
 
 ```text
 interview-growth/
 ├── .codex-plugin/plugin.json
-├── .mcp.json
 ├── hooks/hooks.json
 ├── skills/
 │   ├── goal-manager/SKILL.md
@@ -612,9 +604,9 @@ interview-growth/
 │   ├── domain/
 │   ├── application/
 │   ├── persistence/
-│   ├── context/
-│   ├── mcp/
-│   └── cli/
+│   ├── operations.py
+│   ├── contracts.py
+│   └── cli.py
 ├── migrations/
 ├── tests/
 │   ├── unit/
@@ -625,7 +617,8 @@ interview-growth/
 └── uv.lock
 ```
 
-领域层不得导入 FastMCP、sqlite3 或 Codex 适配代码；应用层通过 Repository 和 Context Assembler 接口访问基础设施。
+领域层不得导入 argparse、sqlite3 或 Codex 适配代码；应用层通过 Repository 和 Context
+Assembler 接口访问基础设施。CLI 只负责 JSON 协议、类型转换、错误信封和操作分发。
 
 ## 18. 安全与隐私
 
@@ -633,7 +626,7 @@ interview-growth/
 - 产品不采集遥测。
 - 数据文件仅允许当前操作系统用户访问。
 - 数据库不保存模型 API Key、OAuth Token 或其他秘密。
-- MCP 只向宿主 Agent 发送完成当前任务所需的最小 Context Packet。
+- CLI 只向宿主 Agent 返回完成当前任务所需的最小 Context Packet。
 - 文档明确告知：发送给宿主 Agent 的内容仍受相应模型提供商的数据处理规则约束。
 - 用户应启用 FileVault、BitLocker 等操作系统磁盘加密。
 - 导出操作显式发生；导出包包含 SQLite 和可读 JSON／Markdown 清单。
@@ -658,7 +651,7 @@ interview-growth/
 - **单元测试**：聚合、门槛、版本、状态机和资格判定。
 - **属性测试**：重复写入幂等、排序稳定、目标隔离和聚合边界。
 - **数据库集成测试**：事务回滚、外键、WAL、迁移和备份恢复。
-- **MCP 契约测试**：工具 schema、错误码、版本冲突和结构化输出。
+- **CLI 契约测试**：操作 schema、错误码、版本冲突、stdin 输入和结构化输出。
 - **工作流测试**：创建目标到面试、评价、训练、复测的完整链路。
 - **崩溃恢复测试**：回答落库后评价前中断、压缩中断、Hook 失败。
 - **Context 泄漏测试**：面试官不得看到答案与历史总分，目标之间不得串数据。
@@ -669,7 +662,7 @@ interview-growth/
 
 ### M0：基础与隔离
 
-- Codex Plugin 骨架、uv 项目和 FastMCP STDIO。
+- Codex Plugin 骨架、uv 项目和结构化 JSON CLI。
 - 注册表、每目标独立数据库、迁移和数据目录。
 - 目标创建、选择、切换、生命周期和隔离测试。
 - 最小 Context Packet 与幂等基础设施。
@@ -709,7 +702,7 @@ interview-growth/
 - 至少两个目标可以创建、切换并证明无数据串写。
 - 标准、题库、面试、评价、面板、训练和复盘完整跑通。
 - 面试题目、原始回答、评价和追问正常自动落库。
-- MCP 重试不产生重复记录。
+- CLI 重试不产生重复记录。
 - 会话中断和上下文压缩后可以恢复。
 - 每个分项等级可追溯到标准、规约、回答和评价来源。
 - 评价基准集中，同一回答重复评价通常保持相同或相邻等级。
@@ -732,12 +725,12 @@ interview-growth/
 | 宿主模型评价波动 | 当前等级不稳定 | 强制规约、结构化证据、置信度、基准集、争议和重评 |
 | 自动生成规约质量差 | 错误标准被系统化 | 规约完整性校验、用户可审阅、版本化、低置信度不计分 |
 | 主题持续碎片化 | 面板失真 | 规范名称、别名、重复建议、用户确认合并 |
-| Skill 漏调用 MCP | 回答或评价丢失 | 原始回答优先落库、检查点、Stop／PreCompact 守卫、恢复测试 |
+| Skill 漏调用 CLI | 回答或评价丢失 | 原始回答优先落库、检查点、PreCompact 守卫、恢复测试 |
 | Context 串目标或泄漏答案 | 评分污染 | 物理数据库隔离、单会话单目标、角色 Packet、泄漏测试 |
 | 用户背题刷分 | 虚假掌握 | 每题只取最新证据、至少两道不同题、不同题复测 |
 | 证据长期陈旧 | 面板高估当前水平 | 近期性权重、近 30 天证据门槛、重新验证状态 |
 | 插件首次安装依赖网络 | 安装失败 | 锁文件、清晰诊断、后续评估预构建环境或打包方案 |
-| FastMCP v2 迁移 | SDK 接口变化 | 固定稳定 v1 `<2`，通过 MCP 契约测试后单独迁移 |
+| CLI 参数或输出漂移 | Skill 调用失败 | 可查询契约、Pydantic 校验、统一错误信封和 CLI 契约测试 |
 
 ## 23. 后续路线图
 
@@ -757,15 +750,14 @@ interview-growth/
 
 - [Codex Customization](https://learn.chatgpt.com/docs/customization/overview)
 - [Codex Hooks](https://learn.chatgpt.com/docs/hooks)
-- [Codex Model Context Protocol](https://learn.chatgpt.com/docs/extend/mcp)
 - [Codex Build Plugins](https://learn.chatgpt.com/docs/build-plugins)
 - [Claude Code Hooks](https://code.claude.com/docs/en/hooks)
 - [Claude Code Plugins](https://code.claude.com/docs/en/plugins)
-- [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk)
-- [MCP Python SDK Installation](https://py.sdk.modelcontextprotocol.io/installation/)
 
 ## 25. 决策结论
 
-本项目的 MVP 不是一个“会提问的聊天模板”，而是一套以成长目标为隔离边界、以结构化证据为事实基础、以 Agent 角色为交互能力、以 MCP 为确定性领域核心、以 Hook 为可靠性守卫的面试能力成长系统。
+本项目的 MVP 不是一个“会提问的聊天模板”，而是一套以成长目标为隔离边界、以结构化证据
+为事实基础、以 Agent 角色为交互能力、以应用核心和结构化 CLI 为确定性执行层、以 Hook
+为可靠性守卫的面试能力成长系统。
 
 首期成功的判断标准不是功能数量，也不是一个漂亮的总分，而是用户能否在不同题目的无辅助复测中，可靠地关闭与目标岗位相关的真实能力缺口。

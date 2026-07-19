@@ -1,18 +1,16 @@
 [project]
 name = "interview-growth"
-version = "0.5.0"
+version = "0.6.0"
 description = "Local evidence-based interview growth system for Codex"
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-  "mcp[cli]>=1.27,<2",
   "pydantic>=2.11,<3",
 ]
 
 [project.scripts]
 interview-growth = "interview_growth.cli:main"
 interview-growth-hook = "interview_growth.hook_cli:main"
-interview-growth-mcp = "interview_growth.mcp_server:main"
 
 [dependency-groups]
 dev = [
@@ -46,3 +44,5 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
 include = ["src", "tests"]
+venvPath = "."
+venv = ".venv"

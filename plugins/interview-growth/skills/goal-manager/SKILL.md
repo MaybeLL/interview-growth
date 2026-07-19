@@ -5,14 +5,21 @@ description: Configure and safely administer isolated software-interview growth 
 
 # Goal Manager
 
-Manage the current growth goal through the `interview-growth` MCP server. Keep goal selection,
+Manage the current growth goal through the structured `interview-growth` CLI. Keep goal selection,
 assumptions, and user approval explicit.
+
+## CLI protocol
+
+Resolve `<plugin-root>` as two directories above this `SKILL.md`. Run `uv run --no-editable
+--project "<plugin-root>" interview-growth call <operation>` and pass exactly one JSON object on
+stdin. Read only the returned `{ok,data,error}` envelope. Stop dependent work when `ok` is false;
+inspect a contract with `interview-growth operations <operation>` when needed.
 
 ## Establish scope
 
-1. Call `goal_get_current` with the host session ID.
-2. If no goal is bound, call `goal_list` and ask the user to choose, or call `goal_create` when
-   they asked for a new goal. Then call `goal_select` explicitly.
+1. Invoke CLI operation `goal_get_current` with the host session ID.
+2. If no goal is bound, invoke CLI operation `goal_list` and ask the user to choose, or invoke CLI operation `goal_create` when
+   they asked for a new goal. Then invoke CLI operation `goal_select` explicitly.
 3. Never infer a goal from conversation text. Never combine standards or IDs from two goals.
 4. Re-check the current goal after the user switches targets or the session resumes.
 
@@ -22,16 +29,16 @@ assumptions, and user approval explicit.
    constraint with `source_material_add(kind="user_constraint")`.
 2. Extract a role profile containing at least `role` and `level`. Preserve uncertainties as
    assumptions in the profile instead of silently inventing requirements.
-3. Before creating a topic, call `topic_suggest_duplicates`. Reuse the returned topic when it is
-   semantically the same; call `topic_create` only for a distinct concept. Use a parent ID to form
+3. Before creating a topic, invoke CLI operation `topic_suggest_duplicates`. Reuse the returned topic when it is
+   semantically the same; invoke CLI operation `topic_create` only for a distinct concept. Use a parent ID to form
    the single-parent topic tree.
 4. Keep topics and capabilities separate: topics describe what is discussed; capabilities describe
    transferable performance such as system design or trade-off analysis.
 5. Create requirements with target level 0–4, positive weight, minimum independent evidence count,
    and `critical=true` only when the requirement cannot be offset by strengths elsewhere.
-6. Call `standard_create_draft`. Present the role profile, assumptions, source coverage, requirements,
+6. Invoke CLI operation `standard_create_draft`. Present the role profile, assumptions, source coverage, requirements,
    weights, and critical gates to the user.
-7. Call `standard_approve` only after an explicit approval. Pass the draft's exact revision. A later
+7. Invoke CLI operation `standard_approve` only after an explicit approval. Pass the draft's exact revision. A later
    material change requires a new draft and a new approved version.
 
 ## Change lifecycle
@@ -57,6 +64,6 @@ or archives a goal.
 
 - Use one stable idempotency key per intended domain action and reuse it only for exact retries.
 - Treat version conflicts as a signal to reload and re-present the changed data.
-- Do not write SQLite directly. All domain writes go through MCP.
+- Do not write SQLite directly. All domain writes go through the structured CLI.
 - Do not copy source text, taxonomies, or standards into another goal unless the user explicitly
   asks; create independent records with new identities when copying is requested.

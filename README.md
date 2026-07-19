@@ -1,11 +1,11 @@
 # Interview Growth
 
 一个面向程序员求职面试的 Agent-native 成长系统。系统以“成长目标”为最大隔离容器，
-通过 Skill、MCP、Hook 和按需 Context Packet 帮助用户持续练习，并逐步积累可审计的能力证据。
+通过 Skill、结构化 CLI、Hook 和按需 Context Packet 帮助用户持续练习，并逐步积累可审计的能力证据。
 
-当前完成 M0 基础层、M1 目标标准／题库层与 M2 模拟面试／评价层：
+当前已完成 M0–M4 的本地 MVP：
 
-- Codex 插件骨架与 FastMCP STDIO 服务；
+- Codex 插件骨架与面向 Agent 的结构化 JSON CLI；
 - Registry SQLite 与每目标独立 SQLite 数据库；
 - 会话到当前目标的显式绑定；
 - 目标生命周期、幂等创建和存储健康检查；
@@ -22,6 +22,10 @@
 - 面试官、评价者和教练 Context 隔离；
 - `interview`、内部 `evaluator` 与 `coach` Skill；
 - 压缩前仅依据结构化 session ID 保存活动面试检查点的 Hook 守卫。
+- 证据资格、近期性、覆盖门槛、关键阻塞项和能力面板；
+- 评价争议、盲重评、训练处方和不同题复测；
+- 真实面试复盘、覆盖盲区、备份恢复、`.igx` 导入导出和可恢复删除；
+- GitHub marketplace 安装、四周试用指南和七个场景化 Skill。
 
 项目白皮书和关键决策见 [docs/WHITEPAPER.md](docs/WHITEPAPER.md) 与
 [docs/adr](docs/adr)。可运行插件位于 [plugins/interview-growth](plugins/interview-growth)。
@@ -36,5 +40,4 @@ uv run --no-editable ruff check .
 uv run --no-editable pyright
 ```
 
-M3 将在这一基础上加入证据资格聚合、主题／能力面板、关键门槛、能力缺口、训练处方
-与不同题复测。
+架构自 0.6.0 起只使用 Skill、结构化 CLI 与 Hook，不再启动或分发 MCP Server。

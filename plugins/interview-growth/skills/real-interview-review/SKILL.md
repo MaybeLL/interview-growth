@@ -7,9 +7,16 @@ description: Capture and analyze a real software job interview for the explicitl
 
 Turn an imperfect memory into useful coverage feedback without pretending it is formal evidence.
 
+## CLI protocol
+
+Resolve `<plugin-root>` as two directories above this `SKILL.md`. Run `uv run --no-editable
+--project "<plugin-root>" interview-growth call <operation>` and pass exactly one JSON object on
+stdin. Read only the returned `{ok,data,error}` envelope. Stop dependent work when `ok` is false;
+inspect a contract with `interview-growth operations <operation>` when needed.
+
 ## Establish scope
 
-1. Call `goal_get_current`; require explicit selection if no goal is bound.
+1. Invoke CLI operation `goal_get_current`; require explicit selection if no goal is bound.
 2. Ask for company, role, round, approximate time, and result. Accept `unknown` where memory is
    incomplete.
 3. Collect each recalled question separately with the answer summary, any interviewer feedback,
@@ -18,7 +25,7 @@ Turn an imperfect memory into useful coverage feedback without pretending it is 
 
 ## Record the review
 
-Call `real_interview_record` once with a stable idempotency key. Every recalled question becomes a
+Invoke CLI operation `real_interview_record` once with a stable idempotency key. Every recalled question becomes a
 pending question-bank candidate in the current goal. Explain its coverage status:
 
 - `mapped`: an assessable simulated question already covers a related topic or capability;

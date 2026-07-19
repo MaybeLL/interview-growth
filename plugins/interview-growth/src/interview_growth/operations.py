@@ -1,10 +1,9 @@
-"""FastMCP adapter for Interview Growth domain operations."""
+"""Stable domain-operation registry used by the structured CLI adapter."""
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
-
-from mcp.server.fastmcp import FastMCP
 
 from interview_growth.application.capabilities import CapabilityService
 from interview_growth.application.context import ContextService
@@ -49,13 +48,15 @@ from interview_growth.domain.models import (
     SourceMaterialKind,
 )
 
-mcp = FastMCP(
-    "Interview Growth",
-    instructions=(
-        "Manage isolated interview growth goals. Never infer a current goal: call "
-        "goal_get_current and require explicit goal_select before goal-scoped work."
-    ),
-)
+type Operation = Callable[..., Any]
+OPERATIONS: dict[str, Operation] = {}
+
+
+def operation(function: Operation) -> Operation:
+    """Register one stable operation for CLI discovery and invocation."""
+
+    OPERATIONS[function.__name__] = function
+    return function
 
 
 def _goal_service() -> GoalService:
@@ -86,7 +87,7 @@ def _real_interview_service() -> RealInterviewService:
     return RealInterviewService(_goal_service())
 
 
-@mcp.tool()
+@operation
 def goal_create(name: str, idempotency_key: str, slug: str | None = None) -> GoalOutput:
     """Create a physically isolated growth goal in configuring state."""
 
@@ -98,7 +99,7 @@ def goal_create(name: str, idempotency_key: str, slug: str | None = None) -> Goa
     return GoalOutput.from_domain(goal)
 
 
-@mcp.tool()
+@operation
 def goal_list() -> GoalListOutput:
     """List registry-level goal summaries without reading goal-domain data."""
 
@@ -106,7 +107,7 @@ def goal_list() -> GoalListOutput:
     return GoalListOutput(goals=goals)
 
 
-@mcp.tool()
+@operation
 def goal_select(session_id: str, goal_id: str) -> GoalOutput:
     """Explicitly bind this Codex session to exactly one current growth goal."""
 
@@ -114,7 +115,7 @@ def goal_select(session_id: str, goal_id: str) -> GoalOutput:
     return GoalOutput.from_domain(goal)
 
 
-@mcp.tool()
+@operation
 def goal_get_current(session_id: str) -> GoalOutput:
     """Return the single growth goal currently bound to this session."""
 
@@ -122,7 +123,7 @@ def goal_get_current(session_id: str) -> GoalOutput:
     return GoalOutput.from_domain(goal)
 
 
-@mcp.tool()
+@operation
 def goal_change_lifecycle(session_id: str, lifecycle: GoalLifecycle) -> GoalOutput:
     """Change the lifecycle of the explicitly selected current goal."""
 
@@ -133,7 +134,7 @@ def goal_change_lifecycle(session_id: str, lifecycle: GoalLifecycle) -> GoalOutp
     return GoalOutput.from_domain(goal)
 
 
-@mcp.tool()
+@operation
 def context_build(
     session_id: str,
     role: ContextRole,
@@ -156,7 +157,7 @@ def context_build(
     return ContextPacketOutput.from_domain(packet)
 
 
-@mcp.tool()
+@operation
 def source_material_add(
     session_id: str,
     kind: SourceMaterialKind,
@@ -176,7 +177,7 @@ def source_material_add(
     return SourceMaterialOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def topic_create(
     session_id: str,
     canonical_name: str,
@@ -198,7 +199,7 @@ def topic_create(
     return TopicOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def topic_list(session_id: str, active_only: bool = True) -> TopicListOutput:
     """List the current goal's topic tree nodes."""
 
@@ -208,7 +209,7 @@ def topic_list(session_id: str, active_only: bool = True) -> TopicListOutput:
     return TopicListOutput(topics=tuple(TopicOutput.from_domain(item) for item in values))
 
 
-@mcp.tool()
+@operation
 def topic_suggest_duplicates(
     session_id: str,
     name: str,
@@ -224,7 +225,7 @@ def topic_suggest_duplicates(
     )
 
 
-@mcp.tool()
+@operation
 def capability_create(
     session_id: str,
     canonical_name: str,
@@ -242,7 +243,7 @@ def capability_create(
     return CapabilityOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def capability_list(session_id: str) -> CapabilityListOutput:
     """List the current goal's capability dimensions."""
 
@@ -252,7 +253,7 @@ def capability_list(session_id: str) -> CapabilityListOutput:
     )
 
 
-@mcp.tool()
+@operation
 def standard_create_draft(
     session_id: str,
     role_profile: dict[str, object],
@@ -276,7 +277,7 @@ def standard_create_draft(
     return StandardDraftOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def standard_get_draft(session_id: str, draft_id: str) -> StandardDraftOutput:
     """Get one standard draft for review without exposing another goal."""
 
@@ -285,7 +286,7 @@ def standard_get_draft(session_id: str, draft_id: str) -> StandardDraftOutput:
     )
 
 
-@mcp.tool()
+@operation
 def standard_approve(
     session_id: str,
     draft_id: str,
@@ -303,7 +304,7 @@ def standard_approve(
     return StandardVersionOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def standard_list_versions(session_id: str) -> StandardVersionListOutput:
     """List immutable target-standard versions for the current goal."""
 
@@ -313,7 +314,7 @@ def standard_list_versions(session_id: str) -> StandardVersionListOutput:
     )
 
 
-@mcp.tool()
+@operation
 def standard_compare_versions(
     session_id: str,
     older_id: str,
@@ -326,7 +327,7 @@ def standard_compare_versions(
     )
 
 
-@mcp.tool()
+@operation
 def question_capture(
     session_id: str,
     prompt: str,
@@ -348,7 +349,7 @@ def question_capture(
     return QuestionOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def question_prepare_version(
     session_id: str,
     question_id: str,
@@ -376,7 +377,7 @@ def question_prepare_version(
     return QuestionOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def question_search(
     session_id: str,
     query: str = "",
@@ -398,7 +399,7 @@ def question_search(
     )
 
 
-@mcp.tool()
+@operation
 def question_get_history(session_id: str, question_id: str) -> QuestionHistoryOutput:
     """Read every immutable version of one question."""
 
@@ -410,7 +411,7 @@ def question_get_history(session_id: str, question_id: str) -> QuestionHistoryOu
     )
 
 
-@mcp.tool()
+@operation
 def question_suggest_duplicates(
     session_id: str,
     prompt: str,
@@ -426,7 +427,7 @@ def question_suggest_duplicates(
     )
 
 
-@mcp.tool()
+@operation
 def question_retire(
     session_id: str,
     question_id: str,
@@ -444,7 +445,7 @@ def question_retire(
     return QuestionOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def interview_start(
     session_id: str,
     plan: dict[str, object],
@@ -462,7 +463,7 @@ def interview_start(
     return InterviewOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def interview_get_state(session_id: str, interview_id: str) -> InterviewOutput:
     """Read the versioned state and queue of one current-goal interview."""
 
@@ -472,7 +473,7 @@ def interview_get_state(session_id: str, interview_id: str) -> InterviewOutput:
     return InterviewOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def interview_register_question(
     session_id: str,
     interview_id: str,
@@ -492,7 +493,7 @@ def interview_register_question(
     return InterviewOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def followup_register(
     session_id: str,
     interview_id: str,
@@ -516,7 +517,7 @@ def followup_register(
     return InterviewOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def attempt_record(
     session_id: str,
     interview_id: str,
@@ -540,7 +541,7 @@ def attempt_record(
     return AttemptOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def evaluation_submit(
     session_id: str,
     interview_id: str,
@@ -566,7 +567,7 @@ def evaluation_submit(
     return EvaluationOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def interview_checkpoint(
     session_id: str,
     interview_id: str,
@@ -586,7 +587,7 @@ def interview_checkpoint(
     return InterviewOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def interview_pause(
     session_id: str,
     interview_id: str,
@@ -604,7 +605,7 @@ def interview_pause(
     return InterviewOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def interview_resume(
     session_id: str,
     interview_id: str,
@@ -622,7 +623,7 @@ def interview_resume(
     return InterviewOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def interview_finish(
     session_id: str,
     interview_id: str,
@@ -644,7 +645,7 @@ def interview_finish(
     return InterviewOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def practice_record(
     session_id: str,
     question_id: str,
@@ -666,28 +667,28 @@ def practice_record(
     return PracticeOutput.from_domain(value)
 
 
-@mcp.tool()
+@operation
 def dashboard_get(session_id: str) -> dict[str, Any]:
     """Show evidence-backed readiness, coverage, critical gates, gaps, and next actions."""
 
     return _capability_dashboard_service().dashboard(session_id=session_id)
 
 
-@mcp.tool()
+@operation
 def evidence_get(session_id: str) -> dict[str, Any]:
     """List only effective evidence under the current approved standard."""
 
     return _capability_dashboard_service().evidence(session_id=session_id)
 
 
-@mcp.tool()
+@operation
 def gap_list(session_id: str) -> list[dict[str, Any]]:
     """List current readiness gaps without inventing a percentage score."""
 
     return _capability_dashboard_service().gaps(session_id=session_id)
 
 
-@mcp.tool()
+@operation
 def evaluation_dispute(
     session_id: str,
     evaluation_id: str,
@@ -704,7 +705,7 @@ def evaluation_dispute(
     )
 
 
-@mcp.tool()
+@operation
 def evaluation_submit_reassessment(
     session_id: str,
     dispute_id: str,
@@ -725,7 +726,7 @@ def evaluation_submit_reassessment(
     )
 
 
-@mcp.tool()
+@operation
 def evaluation_resolve_dispute(
     session_id: str,
     dispute_id: str,
@@ -744,7 +745,7 @@ def evaluation_resolve_dispute(
     )
 
 
-@mcp.tool()
+@operation
 def prescription_create(
     session_id: str,
     subject_type: str,
@@ -763,14 +764,14 @@ def prescription_create(
     )
 
 
-@mcp.tool()
+@operation
 def prescription_get_next(session_id: str) -> dict[str, Any] | None:
     """Return the oldest active training prescription for the current goal."""
 
     return _capability_dashboard_service().next_prescription(session_id=session_id)
 
 
-@mcp.tool()
+@operation
 def retest_schedule(
     session_id: str,
     prescription_id: str,
@@ -789,7 +790,7 @@ def retest_schedule(
     )
 
 
-@mcp.tool()
+@operation
 def real_interview_record(
     session_id: str,
     company: str,
@@ -816,7 +817,7 @@ def real_interview_record(
     )
 
 
-@mcp.tool()
+@operation
 def real_interview_get(session_id: str, review_id: str) -> dict[str, Any]:
     """Get one real interview review and its coverage blind spots."""
 
@@ -825,7 +826,7 @@ def real_interview_get(session_id: str, review_id: str) -> dict[str, Any]:
     )
 
 
-@mcp.tool()
+@operation
 def real_interview_list(
     session_id: str, limit: int = 20
 ) -> list[dict[str, Any]]:
@@ -834,7 +835,7 @@ def real_interview_list(
     return _real_interview_service().list(session_id=session_id, limit=limit)
 
 
-@mcp.tool()
+@operation
 def goal_backup(
     session_id: str, reason: str, idempotency_key: str
 ) -> dict[str, Any]:
@@ -845,14 +846,14 @@ def goal_backup(
     )
 
 
-@mcp.tool()
+@operation
 def goal_list_backups(session_id: str) -> list[dict[str, Any]]:
     """List verified backup metadata for the current goal."""
 
     return _portability_service().list_backups(session_id=session_id)
 
 
-@mcp.tool()
+@operation
 def goal_restore(
     session_id: str,
     backup_id: str,
@@ -869,7 +870,7 @@ def goal_restore(
     )
 
 
-@mcp.tool()
+@operation
 def goal_export(
     session_id: str, output_path: str, idempotency_key: str
 ) -> dict[str, Any]:
@@ -882,7 +883,7 @@ def goal_export(
     )
 
 
-@mcp.tool()
+@operation
 def goal_import(
     package_path: str, idempotency_key: str, name: str | None = None
 ) -> GoalOutput:
@@ -897,7 +898,7 @@ def goal_import(
     )
 
 
-@mcp.tool()
+@operation
 def goal_delete(
     session_id: str,
     backup_id: str,
@@ -912,13 +913,3 @@ def goal_delete(
         confirm_goal_id=confirm_goal_id,
         idempotency_key=idempotency_key,
     )
-
-
-def main() -> None:
-    """Run the local MCP server over STDIO."""
-
-    mcp.run(transport="stdio")
-
-
-if __name__ == "__main__":
-    main()

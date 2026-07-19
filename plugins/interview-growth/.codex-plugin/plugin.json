@@ -1,6 +1,6 @@
 {
   "name": "interview-growth",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "A private, evidence-based system for growing toward a target software role.",
   "author": {
     "name": "Interview Growth Contributors"
@@ -22,6 +22,5 @@
       "Select my current interview goal.",
       "Show my evidence-backed readiness and next gaps."
     ]
-  },
-  "mcpServers": "./.mcp.json"
+  }
 }

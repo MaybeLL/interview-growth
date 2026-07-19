@@ -7,9 +7,16 @@ description: Internally evaluate a safely recorded mock-interview attempt agains
 
 Evaluate one stored attempt in an isolated step. Do not directly interview or coach the user.
 
+## CLI protocol
+
+Resolve `<plugin-root>` as two directories above this `SKILL.md`. Run `uv run --no-editable
+--project "<plugin-root>" interview-growth call <operation>` and pass exactly one JSON object on
+stdin. Read only the returned `{ok,data,error}` envelope. Stop dependent work when `ok` is false;
+inspect a contract with `interview-growth operations <operation>` when needed.
+
 ## Load frozen evidence
 
-1. Call `context_build(role="evaluator", interview_id=..., attempt_id=...)`.
+1. Invoke CLI operation `context_build` with `role="evaluator"`, the interview ID, and attempt ID.
 2. Verify the packet contains the recorded raw answer, assistance level, frozen question version,
    complete rubric, and frozen standard version.
 3. Do not request prior evaluation conclusions or historical scores. Do not alter the rubric after
@@ -30,9 +37,9 @@ target role, not to a universal skill scale.
 
 ## Persist
 
-Call `evaluation_submit` with the packet's interview revision, all dimension results, a concise
+Invoke CLI operation `evaluation_submit` with the packet's interview revision, all dimension results, a concise
 summary, and provenance containing `evaluator`, `host`, `model`, and `prompt_version`.
 
 If submission fails, leave the raw attempt untouched and retry after reloading state. Never recreate
-or overwrite the attempt. The server determines evidence eligibility from assistance and confidence;
-do not claim that coached or hinted answers are independent evidence.
+or overwrite the attempt. The application core determines evidence eligibility from assistance and
+confidence; do not claim that coached or hinted answers are independent evidence.

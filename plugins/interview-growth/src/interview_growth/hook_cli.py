@@ -1,4 +1,4 @@
-"""Thin lifecycle hook entry point; business semantics remain in Skills and MCP."""
+"""Thin lifecycle hook entry point; business semantics remain in Skills and services."""
 
 from __future__ import annotations
 

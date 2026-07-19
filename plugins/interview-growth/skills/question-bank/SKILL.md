@@ -5,8 +5,15 @@ description: Capture, search, version, organize, and retire software-interview q
 
 # Question Bank
 
-Manage questions through the `interview-growth` MCP server. Preserve immutable question history and
-keep every operation inside the current goal.
+Manage questions through the structured `interview-growth` CLI. Preserve immutable question history
+and keep every operation inside the current goal.
+
+## CLI protocol
+
+Resolve `<plugin-root>` as two directories above this `SKILL.md`. Run `uv run --no-editable
+--project "<plugin-root>" interview-growth call <operation>` and pass exactly one JSON object on
+stdin. Read only the returned `{ok,data,error}` envelope. Stop dependent work when `ok` is false;
+inspect a contract with `interview-growth operations <operation>` when needed.
 
 ## Confirm capture intent
 
@@ -17,18 +24,18 @@ keep every operation inside the current goal.
 
 ## Capture a question
 
-1. Call `goal_get_current`. If no current goal exists, require `goal_select` before continuing.
-2. Call `question_suggest_duplicates` with the proposed prompt. If a strong candidate exists, show
+1. Invoke CLI operation `goal_get_current`. If no current goal exists, require `goal_select` before continuing.
+2. Invoke CLI operation `question_suggest_duplicates` with the proposed prompt. If a strong candidate exists, show
    it and ask whether to reuse it or create a distinct question.
 3. Resolve topics with `topic_list` and `topic_suggest_duplicates`; create a topic only when the
    concept is distinct. Resolve capabilities with `capability_list`.
-4. Call `question_capture` immediately after explicit capture intent. This creates a `pending`
+4. Invoke CLI operation `question_capture` immediately after explicit capture intent. This creates a `pending`
    version even when taxonomy or rubric work is incomplete.
 5. Use a stable idempotency key for exact retries.
 
 ## Make a question assessable
 
-Call `question_prepare_version` with the current expected version. Never overwrite the captured
+Invoke CLI operation `question_prepare_version` with the current expected version. Never overwrite the captured
 version. Supply at least one topic and one capability plus a rubric containing:
 
 - `evaluation_intent`: what the answer should demonstrate;
@@ -48,7 +55,7 @@ question may be captured and practiced, but explain that it cannot yet produce f
 
 ## Retire safely
 
-Call `question_retire` with the exact current version and explicit user intent. Retirement preserves
+Invoke CLI operation `question_retire` with the exact current version and explicit user intent. Retirement preserves
 all versions and future answer references; never delete or rewrite question history.
 
 ## Isolation rules
@@ -56,4 +63,4 @@ all versions and future answer references; never delete or rewrite question hist
 - Never reuse question, topic, capability, or standard IDs after switching goals.
 - Cross-goal copying creates an independent question through `question_capture`; it has no shared
   identity, status, answers, or scores.
-- Do not write SQLite directly. All domain writes go through MCP.
+- Do not write SQLite directly. All domain writes go through the structured CLI.

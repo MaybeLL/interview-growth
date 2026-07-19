@@ -25,14 +25,9 @@ class DataPaths:
     def from_environment(cls) -> DataPaths:
         """Resolve plugin data without depending on the current working directory."""
 
-        for variable in (
-            "INTERVIEW_GROWTH_DATA_DIR",
-            "PLUGIN_DATA",
-            "CLAUDE_PLUGIN_DATA",
-        ):
-            value = os.environ.get(variable)
-            if value:
-                return cls(Path(value).expanduser().resolve())
+        override = os.environ.get("INTERVIEW_GROWTH_DATA_DIR")
+        if override:
+            return cls(Path(override).expanduser().resolve())
 
         xdg_data_home = os.environ.get("XDG_DATA_HOME")
         if xdg_data_home:
