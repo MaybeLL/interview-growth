@@ -2,10 +2,11 @@
 
 一个面向程序员求职面试的 Agent-native 成长系统。系统以“成长目标”为最大隔离容器，
 通过 Skill、结构化 CLI、Hook 和按需 Context Packet 帮助用户持续练习，并逐步积累可审计的能力证据。
+同一套领域核心可作为 Codex 或 Claude Code 插件安装。
 
 当前已完成 M0–M4 的本地 MVP：
 
-- Codex 插件骨架与面向 Agent 的结构化 JSON CLI；
+- Codex／Claude Code 双宿主插件骨架与面向 Agent 的结构化 JSON CLI；
 - Registry SQLite 与每目标独立 SQLite 数据库；
 - 会话到当前目标的显式绑定；
 - 目标生命周期、幂等创建和存储健康检查；

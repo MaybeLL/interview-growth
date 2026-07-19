@@ -1,8 +1,8 @@
 # Interview Growth
 
-Local Codex plugin foundation for evidence-based software interview growth.
+Local Codex and Claude Code plugin for evidence-based software interview growth.
 
-Version 0.6.0 provides:
+Version 0.7.0 provides:
 
 - a structured JSON CLI with discoverable operation contracts;
 - a minimal goal registry;
@@ -30,7 +30,7 @@ Version 0.6.0 provides:
 - the `capability-dashboard` skill and M3 CLI operations.
 - real interview reviews with question-bank candidates and coverage blind spots;
 - verified goal backups, safety-first restore, portable `.igx` export/import, and app-trash delete;
-- a repo-local Codex marketplace plus installation and four-week product-trial guides;
+- repo-local Codex and Claude Code marketplaces plus installation and four-week product-trial guides;
 - the `real-interview-review` skill and M4 CLI operations.
 
 See [installation](docs/INSTALLATION.md) and the [four-week trial](docs/FOUR_WEEK_TRIAL.md).

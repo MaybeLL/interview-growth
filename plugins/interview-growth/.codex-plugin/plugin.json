@@ -1,9 +1,9 @@
 {
   "name": "interview-growth",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "A private, evidence-based system for growing toward a target software role.",
   "author": {
-    "name": "Interview Growth Contributors"
+    "name": "MaybeLL"
   },
   "skills": "./skills/",
   "interface": {

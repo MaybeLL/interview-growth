@@ -1,0 +1,20 @@
+{
+  "name": "maybell-plugins",
+  "description": "MaybeLL's agent plugins for deliberate, evidence-based growth.",
+  "owner": {
+    "name": "MaybeLL"
+  },
+  "plugins": [
+    {
+      "name": "interview-growth",
+      "source": "./plugins/interview-growth",
+      "description": "A private, evidence-based system for growing toward a target software role.",
+      "category": "Productivity",
+      "tags": [
+        "interview",
+        "software-engineering",
+        "career-growth"
+      ]
+    }
+  ]
+}
