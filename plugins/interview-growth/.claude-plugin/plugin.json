@@ -1,13 +1,14 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "interview-growth",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "A private, evidence-based system for growing toward a target software role.",
   "author": {
     "name": "MaybeLL"
   },
   "homepage": "https://github.com/MaybeLL/interview-growth",
   "repository": "https://github.com/MaybeLL/interview-growth",
+  "license": "MIT",
   "keywords": [
     "interview",
     "software-engineering",

@@ -2,7 +2,7 @@
 
 Local Codex and Claude Code plugin for evidence-based software interview growth.
 
-Version 0.7.0 provides:
+Version 0.7.1 provides:
 
 - a structured JSON CLI with discoverable operation contracts;
 - a minimal goal registry;
@@ -39,20 +39,20 @@ See [installation](docs/INSTALLATION.md) and the [four-week trial](docs/FOUR_WEE
 
 ```bash
 uv sync --dev --no-editable
-uv run --no-editable pytest
-uv run --no-editable ruff check .
-uv run --no-editable pyright
-uv run --no-editable interview-growth --data-dir .interview-growth-data doctor
+uv run --locked --no-editable pytest
+uv run --locked --no-editable ruff check .
+uv run --locked --no-editable pyright
+uv run --locked --no-editable interview-growth --data-dir .interview-growth-data doctor
 ```
 
 For a local end-to-end check:
 
 ```bash
 DATA_DIR=.interview-growth-data
-uv run --no-editable interview-growth --data-dir "$DATA_DIR" create \
+uv run --locked --no-editable interview-growth --data-dir "$DATA_DIR" create \
   --name "Agent Engineer" \
   --idempotency-key "agent-engineer-v1"
-uv run --no-editable interview-growth --data-dir "$DATA_DIR" list
+uv run --locked --no-editable interview-growth --data-dir "$DATA_DIR" list
 ```
 
 Use the returned goal ID with `select --session-id <session> --goal-id <goal>`.

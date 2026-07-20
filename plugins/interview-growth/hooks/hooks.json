@@ -7,8 +7,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "PYTHONPATH=\"${CLAUDE_PLUGIN_ROOT}/src\" uv run --no-editable --project \"${CLAUDE_PLUGIN_ROOT}\" python -m interview_growth.hook_cli healthcheck",
-            "timeout": 15,
+            "command": "PYTHONPATH=\"${CLAUDE_PLUGIN_ROOT}/src\" uv run --locked --no-editable --project \"${CLAUDE_PLUGIN_ROOT}\" python -m interview_growth.hook_cli healthcheck",
+            "timeout": 120,
             "statusMessage": "Checking Interview Growth storage"
           }
         ]
@@ -20,8 +20,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "PYTHONPATH=\"${CLAUDE_PLUGIN_ROOT}/src\" uv run --no-editable --project \"${CLAUDE_PLUGIN_ROOT}\" python -m interview_growth.hook_cli checkpoint",
-            "timeout": 15,
+            "command": "PYTHONPATH=\"${CLAUDE_PLUGIN_ROOT}/src\" uv run --locked --no-editable --project \"${CLAUDE_PLUGIN_ROOT}\" python -m interview_growth.hook_cli checkpoint",
+            "timeout": 120,
             "statusMessage": "Checkpointing active interview"
           }
         ]

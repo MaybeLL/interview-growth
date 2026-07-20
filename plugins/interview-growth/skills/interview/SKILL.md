@@ -10,7 +10,7 @@ and coaching as separate steps.
 
 ## CLI protocol
 
-Resolve `<plugin-root>` as two directories above this `SKILL.md`. Run `uv run --no-editable
+Resolve `<plugin-root>` as two directories above this `SKILL.md`. Run `uv run --locked --no-editable
 --project "<plugin-root>" interview-growth call <operation>` and pass exactly one JSON object on
 stdin. Read only the returned `{ok,data,error}` envelope. Stop dependent work when `ok` is false;
 inspect a contract with `interview-growth operations <operation>` when needed.

@@ -1,8 +1,9 @@
 [project]
 name = "interview-growth"
-version = "0.7.0"
+version = "0.7.1"
 description = "Local evidence-based interview growth system for coding agents"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "pydantic>=2.11,<3",

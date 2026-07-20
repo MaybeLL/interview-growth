@@ -1,0 +1,32 @@
+# Local secrets and environment overrides
+.env
+.env.*
+!.env.example
+
+# Interview Growth private data and exports
+.interview-growth-data/
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+*.igx
+
+# Python and test artifacts
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Editor and operating-system files
+.DS_Store
+.idea/
+.vscode/

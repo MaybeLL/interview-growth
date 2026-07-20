@@ -31,14 +31,37 @@
 项目白皮书和关键决策见 [docs/WHITEPAPER.md](docs/WHITEPAPER.md) 与
 [docs/adr](docs/adr)。可运行插件位于 [plugins/interview-growth](plugins/interview-growth)。
 
+## 快速安装
+
+系统只要求本机已有 `uv`；缺少兼容的 Python 3.12 时，`uv` 会在首次运行时自动下载和管理。
+
+Claude Code：
+
+```bash
+claude plugin marketplace add MaybeLL/interview-growth && claude plugin install interview-growth@maybell-plugins --scope user
+```
+
+Codex：
+
+```bash
+codex plugin marketplace add MaybeLL/interview-growth --ref main && codex plugin add interview-growth@maybell-plugins
+```
+
+安装后新开会话即可开始创建成长目标。Codex 用户还需通过 `/hooks` 审查并信任插件 Hook。
+完整说明见 [安装文档](plugins/interview-growth/docs/INSTALLATION.md)。
+
 ## 本地验证
 
 ```bash
 cd plugins/interview-growth
 uv sync --dev --no-editable
-uv run --no-editable pytest
-uv run --no-editable ruff check .
-uv run --no-editable pyright
+uv run --locked --no-editable pytest
+uv run --locked --no-editable ruff check .
+uv run --locked --no-editable pyright
 ```
 
 架构自 0.6.0 起只使用 Skill、结构化 CLI 与 Hook，不再启动或分发 MCP Server。
+
+## 许可证
+
+[MIT](LICENSE)

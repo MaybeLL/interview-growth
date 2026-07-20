@@ -7,9 +7,9 @@ storage; no MCP server is required.
 ## Prerequisites
 
 - Codex, the ChatGPT desktop app with Plugins support, or Claude Code;
-- Python 3.12;
 - `uv` available on `PATH`;
-- network access for the first dependency sync.
+- network access on first use so `uv` can obtain Python 3.12 and the locked dependencies when they
+  are not already cached.
 
 ## Install in Codex from GitHub
 
@@ -20,10 +20,9 @@ codex plugin marketplace add MaybeLL/interview-growth --ref main
 codex plugin add interview-growth@maybell-plugins
 ```
 
-The repository is currently private, so Git credentials must grant access to
-`MaybeLL/interview-growth`. Restart the ChatGPT desktop app or Codex and begin in a new chat. Review
-and trust the bundled hooks before enabling them; Codex does not automatically trust plugin hooks.
-The first CLI invocation may download the locked Python dependencies through `uv`.
+Restart the ChatGPT desktop app or Codex and begin in a new chat. Review and trust the bundled hooks
+before enabling them; Codex does not automatically trust plugin hooks. The first CLI invocation may
+download a managed Python 3.12 runtime and the locked dependencies through `uv`.
 
 ## Install in Claude Code from GitHub
 
@@ -35,10 +34,9 @@ claude plugin marketplace add MaybeLL/interview-growth
 claude plugin install interview-growth@maybell-plugins --scope user
 ```
 
-Because the repository is private, the environment running Claude Code must already have GitHub
-credentials that can read `MaybeLL/interview-growth`. Start a new Claude Code session after
-installation. Claude Code discovers the seven Skills and lifecycle hooks from the installed plugin
-automatically. The first CLI invocation may download the locked Python dependencies through `uv`.
+Start a new Claude Code session after installation. Claude Code discovers the seven Skills and
+lifecycle hooks from the installed plugin automatically. The first CLI invocation may download a
+managed Python 3.12 runtime and the locked dependencies through `uv`.
 
 ## Install from a local checkout
 
@@ -46,7 +44,7 @@ For plugin development, prepare the environment from `plugins/interview-growth`:
 
 ```bash
 uv sync --dev --no-editable
-uv run --no-editable pytest -q
+uv run --locked --no-editable pytest -q
 ```
 
 Then register the repository root as a local marketplace in either host:
@@ -70,14 +68,14 @@ Ask the plugin to create and select a goal, then request its current capability 
 terminal-only storage check:
 
 ```bash
-uv run --no-editable interview-growth --data-dir /private/path/interview-growth doctor
+uv run --locked --no-editable interview-growth --data-dir /private/path/interview-growth doctor
 ```
 
 Inspect the agent-facing CLI contract with:
 
 ```bash
-uv run --no-editable interview-growth operations
-uv run --no-editable interview-growth operations interview_start
+uv run --locked --no-editable interview-growth operations
+uv run --locked --no-editable interview-growth operations interview_start
 ```
 
 The default runtime data directory is host-specific. `INTERVIEW_GROWTH_DATA_DIR` overrides it for
