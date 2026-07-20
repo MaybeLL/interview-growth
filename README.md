@@ -50,6 +50,55 @@ codex plugin marketplace add MaybeLL/interview-growth --ref main && codex plugin
 安装后新开会话即可开始创建成长目标。Codex 用户还需通过 `/hooks` 审查并信任插件 Hook。
 完整说明见 [安装文档](plugins/interview-growth/docs/INSTALLATION.md)。
 
+## 卸载
+
+Interview Growth 将业务数据保存在宿主无关的应用数据目录，而不是插件缓存目录。因此执行
+下列卸载命令不会删除目标、题库、回答和评分数据。
+
+### Codex
+
+先卸载插件：
+
+```bash
+codex plugin remove interview-growth@maybell-plugins
+```
+
+如果不再使用该仓库中的任何插件，可以继续移除 marketplace：
+
+```bash
+codex plugin marketplace remove maybell-plugins
+```
+
+### Claude Code
+
+按安装时使用的 scope 卸载；本文安装命令使用的是 `user`：
+
+```bash
+claude plugin uninstall interview-growth@maybell-plugins --scope user
+```
+
+如果不再使用该仓库中的任何插件，可以继续移除 marketplace。Claude Code 删除
+marketplace 时也会卸载仍由它提供的插件：
+
+```bash
+claude plugin marketplace remove maybell-plugins --scope user
+```
+
+卸载后请新开会话，或在 Claude Code 中运行 `/reload-plugins`。如果插件安装在 `project`
+或 `local` scope，请将上述 `--scope user` 替换为实际 scope。
+
+### 可选：永久删除面试数据
+
+重装或升级时不要删除数据目录。如果确实要永久清除所有记录，请先完成导出或备份，再手动
+删除对应目录：
+
+- 设置了 `INTERVIEW_GROWTH_DATA_DIR`：删除该变量指向的目录；
+- 设置了 `XDG_DATA_HOME`：删除 `$XDG_DATA_HOME/interview-growth`；
+- macOS 默认：`~/Library/Application Support/Interview Growth`；
+- 其他平台默认：`~/.local/share/interview-growth`。
+
+这些目录包含 SQLite 数据库、备份和应用内回收站；删除后无法通过重新安装插件恢复。
+
 ## 本地验证
 
 ```bash
