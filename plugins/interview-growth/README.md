@@ -2,7 +2,7 @@
 
 Local Codex and Claude Code plugin for evidence-based software interview growth.
 
-Version 0.7.1 provides:
+Version 0.8.0 provides:
 
 - a structured JSON CLI with discoverable operation contracts;
 - a minimal goal registry;
@@ -13,6 +13,7 @@ Version 0.7.1 provides:
 - a minimal, role-scoped Context Packet;
 - storage health checks suitable for lifecycle hooks.
 - JD and user-constraint sources plus immutable approved target-standard versions;
+- structured target-role profiles with current-profile lookup, reviewable draft revisions, and field-level version comparison;
 - goal-local topic trees, aliases, duplicate suggestions, and capability dimensions;
 - goal-local questions, immutable question versions, complete rubrics, search, and retirement;
 - focused `goal-manager` and `question-bank` skills.

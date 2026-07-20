@@ -19,6 +19,7 @@ from interview_growth.contracts import (
     CapabilityListOutput,
     CapabilityOutput,
     ContextPacketOutput,
+    CurrentRoleProfileOutput,
     DimensionEvaluationInputContract,
     DuplicateSuggestionOutput,
     EvaluationOutput,
@@ -33,7 +34,9 @@ from interview_growth.contracts import (
     QuestionVersionOutput,
     RealInterviewQuestionInputContract,
     RequirementInputContract,
+    RoleProfileInputContract,
     SourceMaterialOutput,
+    StandardComparisonOutput,
     StandardDraftOutput,
     StandardVersionListOutput,
     StandardVersionOutput,
@@ -256,17 +259,17 @@ def capability_list(session_id: str) -> CapabilityListOutput:
 @operation
 def standard_create_draft(
     session_id: str,
-    role_profile: dict[str, object],
+    role_profile: RoleProfileInputContract,
     source_ids: list[str],
     topic_requirements: list[RequirementInputContract],
     capability_requirements: list[RequirementInputContract],
     idempotency_key: str,
 ) -> StandardDraftOutput:
-    """Create an immutable target-standard draft for user review."""
+    """Create a reviewable target-standard draft inside the current goal."""
 
     value = _standard_service().create_draft(
         session_id=session_id,
-        role_profile=role_profile,
+        role_profile=role_profile.to_domain(),
         source_ids=source_ids,
         topic_requirements=tuple(item.to_domain() for item in topic_requirements),
         capability_requirements=tuple(
@@ -284,6 +287,35 @@ def standard_get_draft(session_id: str, draft_id: str) -> StandardDraftOutput:
     return StandardDraftOutput.from_domain(
         _standard_service().get_draft(session_id=session_id, draft_id=draft_id)
     )
+
+
+@operation
+def role_profile_get_current(session_id: str) -> CurrentRoleProfileOutput:
+    """Get the role profile from the current goal's latest approved standard."""
+
+    return CurrentRoleProfileOutput.from_domain(
+        _standard_service().current_version(session_id=session_id)
+    )
+
+
+@operation
+def role_profile_update_draft(
+    session_id: str,
+    draft_id: str,
+    expected_revision: int,
+    role_profile: RoleProfileInputContract,
+    idempotency_key: str,
+) -> StandardDraftOutput:
+    """Replace the role profile on an unapproved standard draft."""
+
+    value = _standard_service().update_draft_role_profile(
+        session_id=session_id,
+        draft_id=draft_id,
+        expected_revision=expected_revision,
+        role_profile=role_profile.to_domain(),
+        idempotency_key=idempotency_key,
+    )
+    return StandardDraftOutput.from_domain(value)
 
 
 @operation
@@ -319,11 +351,13 @@ def standard_compare_versions(
     session_id: str,
     older_id: str,
     newer_id: str,
-) -> dict[str, object]:
+) -> StandardComparisonOutput:
     """Compare two standard versions from the same current goal."""
 
-    return _standard_service().compare_versions(
-        session_id=session_id, older_id=older_id, newer_id=newer_id
+    return StandardComparisonOutput.model_validate(
+        _standard_service().compare_versions(
+            session_id=session_id, older_id=older_id, newer_id=newer_id
+        )
     )
 
 

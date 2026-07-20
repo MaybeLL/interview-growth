@@ -7,7 +7,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from interview_growth.domain.errors import DomainValidationError
+from interview_growth.domain.errors import DomainValidationError, VersionConflictError
 from interview_growth.domain.models import (
     CapabilityDimension,
     Requirement,
@@ -362,6 +362,57 @@ class StandardRepository:
             )
 
         return self._store.read(read)
+
+    def update_draft_role_profile(
+        self,
+        *,
+        draft_id: str,
+        expected_revision: int,
+        role_profile: dict[str, Any],
+        timestamp: str,
+        idempotency_key: str,
+        request_hash: str,
+    ) -> StandardDraft:
+        def write(connection: sqlite3.Connection) -> dict[str, Any]:
+            draft = connection.execute(
+                "SELECT revision, status FROM standard_drafts WHERE id = ?", (draft_id,)
+            ).fetchone()
+            if draft is None:
+                raise DomainValidationError(f"Unknown standard draft ID: {draft_id}")
+            if draft["status"] != "draft":
+                raise DomainValidationError("Only an unapproved draft can be updated.")
+            if draft["revision"] != expected_revision:
+                raise VersionConflictError("Standard draft revision changed; reload and retry.")
+            next_revision = expected_revision + 1
+            connection.execute(
+                """
+                UPDATE standard_drafts
+                SET role_profile_json = ?, revision = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (
+                    json.dumps(role_profile, ensure_ascii=False, separators=(",", ":")),
+                    next_revision,
+                    timestamp,
+                    draft_id,
+                ),
+            )
+            self._store.append_audit(
+                connection,
+                event_type="standard_draft_role_profile_updated",
+                payload={"draft_id": draft_id, "revision": next_revision},
+                timestamp=timestamp,
+            )
+            return {"draft_id": draft_id, "revision": next_revision}
+
+        response = self._store.write_idempotent(
+            operation_name="role_profile_update_draft",
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
+            timestamp=timestamp,
+            operation=write,
+        )
+        return self.get_draft(str(response["draft_id"]))
 
     def approve_draft(
         self,

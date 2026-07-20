@@ -1,6 +1,6 @@
 [project]
 name = "interview-growth"
-version = "0.7.1"
+version = "0.8.0"
 description = "Local evidence-based interview growth system for coding agents"
 readme = "README.md"
 license = "MIT"

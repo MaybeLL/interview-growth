@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-from typing import Any
+from typing import Any, cast
 
 from interview_growth.application.goals import GoalService, utc_now
 from interview_growth.domain.errors import DomainValidationError
@@ -209,8 +210,7 @@ class StandardService:
         capability_requirements: Sequence[RequirementInput],
         idempotency_key: str,
     ) -> StandardDraft:
-        profile = dict(role_profile)
-        self._validate_role_profile(profile)
+        profile = self._normalize_role_profile(role_profile)
         clean_key = require_text(idempotency_key, field="Idempotency key", maximum=200)
         clean_sources = tuple(dict.fromkeys(source_ids))
         clean_topics = self._validate_requirements(topic_requirements, kind="topic")
@@ -266,6 +266,35 @@ class StandardService:
     def get_draft(self, *, session_id: str, draft_id: str) -> StandardDraft:
         return self._repository(session_id).get_draft(draft_id)
 
+    def update_draft_role_profile(
+        self,
+        *,
+        session_id: str,
+        draft_id: str,
+        expected_revision: int,
+        role_profile: Mapping[str, Any],
+        idempotency_key: str,
+    ) -> StandardDraft:
+        if expected_revision < 1:
+            raise DomainValidationError("Expected draft revision must be positive.")
+        profile = self._normalize_role_profile(role_profile)
+        clean_key = require_text(idempotency_key, field="Idempotency key", maximum=200)
+        timestamp = self._clock()
+        return self._repository(session_id).update_draft_role_profile(
+            draft_id=draft_id,
+            expected_revision=expected_revision,
+            role_profile=profile,
+            timestamp=timestamp,
+            idempotency_key=clean_key,
+            request_hash=request_hash(
+                {
+                    "draft_id": draft_id,
+                    "expected_revision": expected_revision,
+                    "role_profile": profile,
+                }
+            ),
+        )
+
     def approve_draft(
         self,
         *,
@@ -309,6 +338,9 @@ class StandardService:
             "older_version": older.version_number,
             "newer_version": newer.version_number,
             "role_profile_changed": older.role_profile != newer.role_profile,
+            "role_profile": self._role_profile_diff(
+                older.role_profile, newer.role_profile
+            ),
             "topic_requirements": self._requirement_diff(
                 older.topic_requirements, newer.topic_requirements
             ),
@@ -359,17 +391,85 @@ class StandardService:
         return tuple(sorted(suggestions, key=lambda item: (-item.score, item.id))[:limit])
 
     @staticmethod
-    def _validate_role_profile(profile: dict[str, Any]) -> None:
-        role = profile.get("role")
-        level = profile.get("level")
-        if not isinstance(role, str) or not role.strip():
+    def _normalize_role_profile(profile: Mapping[str, Any]) -> dict[str, Any]:
+        result = dict(profile)
+        role = result.get("role")
+        level = result.get("level")
+        if not isinstance(role, str):
             raise DomainValidationError("Role profile requires a non-empty 'role'.")
-        if not isinstance(level, str) or not level.strip():
+        if not isinstance(level, str):
             raise DomainValidationError("Role profile requires a non-empty 'level'.")
-        if len(json_bytes := str(profile).encode()) > 100_000:
+        result["role"] = require_text(role, field="Role profile role", maximum=200)
+        result["level"] = require_text(level, field="Role profile level", maximum=200)
+
+        timeline = result.get("target_timeline")
+        if timeline is not None:
+            if not isinstance(timeline, str):
+                raise DomainValidationError("Role profile target_timeline must be text.")
+            result["target_timeline"] = require_text(
+                timeline, field="Role profile target timeline", maximum=500
+            )
+
+        list_fields = (
+            "company_types",
+            "locations",
+            "focus_areas",
+            "responsibilities",
+            "technologies",
+            "constraints",
+            "assumptions",
+        )
+        for field in list_fields:
+            if field not in result:
+                continue
+            raw_items_value = result[field]
+            if not isinstance(raw_items_value, list | tuple):
+                raise DomainValidationError(f"Role profile {field} must be a list of text.")
+            raw_items = cast(Sequence[Any], raw_items_value)
+            if len(raw_items) > 100:
+                raise DomainValidationError(
+                    f"Role profile {field} must contain at most 100 items."
+                )
+            normalized: list[str] = []
+            for item in raw_items:
+                if not isinstance(item, str):
+                    raise DomainValidationError(
+                        f"Role profile {field} must contain only text."
+                    )
+                clean_item = require_text(
+                    item, field=f"Role profile {field} item", maximum=300
+                )
+                if clean_item not in normalized:
+                    normalized.append(clean_item)
+            result[field] = normalized
+
+        try:
+            json_bytes = json.dumps(
+                result, ensure_ascii=False, separators=(",", ":")
+            ).encode()
+        except (TypeError, ValueError) as error:
+            raise DomainValidationError("Role profile must contain JSON values only.") from error
+        if len(json_bytes) > 100_000:
             raise DomainValidationError(
                 f"Role profile is too large ({len(json_bytes)} bytes; maximum 100000)."
             )
+        return result
+
+    @staticmethod
+    def _role_profile_diff(
+        older: Mapping[str, Any], newer: Mapping[str, Any]
+    ) -> dict[str, Any]:
+        old_keys = older.keys()
+        new_keys = newer.keys()
+        return {
+            "added": {key: newer[key] for key in sorted(new_keys - old_keys)},
+            "removed": {key: older[key] for key in sorted(old_keys - new_keys)},
+            "changed": {
+                key: {"older": older[key], "newer": newer[key]}
+                for key in sorted(old_keys & new_keys)
+                if older[key] != newer[key]
+            },
+        }
 
     @staticmethod
     def _validate_requirements(

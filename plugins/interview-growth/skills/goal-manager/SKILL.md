@@ -1,6 +1,6 @@
 ---
 name: goal-manager
-description: Configure and safely administer isolated software-interview growth goals and their versioned target-role standards. Use when the user wants to create, list, select, pause, resume, export, import, back up, restore, archive, or delete a growth goal; provide a JD or target-role constraint; define topics or capability dimensions; review a standard draft; approve a standard version; or compare approved standards.
+description: Configure and safely administer isolated software-interview growth goals, target-role profiles, and versioned target standards. Use when the user wants to create, list, select, pause, resume, export, import, back up, restore, archive, or delete a growth goal; inspect or change the current target-role profile; provide a JD or target-role constraint; define topics or capability dimensions; review or revise a standard draft; approve a standard version; or compare approved standards.
 ---
 
 # Goal Manager
@@ -23,12 +23,25 @@ inspect a contract with `interview-growth operations <operation>` when needed.
 3. Never infer a goal from conversation text. Never combine standards or IDs from two goals.
 4. Re-check the current goal after the user switches targets or the session resumes.
 
+## Inspect and shape the role profile
+
+1. Invoke `role_profile_get_current` when the user asks about the current target role or before
+   proposing a material standard change. A result with `configured=false` means that no approved
+   standard exists yet; do not treat an unapproved draft as current.
+2. Use these canonical fields when they are known: `role`, `level`, `company_types`, `locations`,
+   `target_timeline`, `focus_areas`, `responsibilities`, `technologies`, `constraints`, and
+   `assumptions`. `role` and `level` are required. Omit unknown optional fields instead of guessing.
+3. The profile may include additional JSON fields when the user's situation requires them, but
+   prefer the canonical fields so operation contracts and version comparisons stay discoverable.
+4. Distinguish facts from assumptions. Put uncertain inferences in `assumptions`, show them to the
+   user, and remove or revise them when better evidence arrives.
+
 ## Build a target standard
 
 1. Record each JD with `source_material_add(kind="job_description")` and each explicit user
    constraint with `source_material_add(kind="user_constraint")`.
-2. Extract a role profile containing at least `role` and `level`. Preserve uncertainties as
-   assumptions in the profile instead of silently inventing requirements.
+2. Extract the structured role profile described above. Preserve uncertainties as assumptions in
+   the profile instead of silently inventing requirements.
 3. Before creating a topic, invoke CLI operation `topic_suggest_duplicates`. Reuse the returned topic when it is
    semantically the same; invoke CLI operation `topic_create` only for a distinct concept. Use a parent ID to form
    the single-parent topic tree.
@@ -36,10 +49,17 @@ inspect a contract with `interview-growth operations <operation>` when needed.
    transferable performance such as system design or trade-off analysis.
 5. Create requirements with target level 0–4, positive weight, minimum independent evidence count,
    and `critical=true` only when the requirement cannot be offset by strengths elsewhere.
-6. Invoke CLI operation `standard_create_draft`. Present the role profile, assumptions, source coverage, requirements,
-   weights, and critical gates to the user.
-7. Invoke CLI operation `standard_approve` only after an explicit approval. Pass the draft's exact revision. A later
-   material change requires a new draft and a new approved version.
+6. Invoke CLI operation `standard_create_draft`. Present the role profile, assumptions, source
+   coverage, requirements, weights, and critical gates to the user.
+7. When the user corrects an unapproved profile, reload the draft with `standard_get_draft`, preserve
+   every unchanged profile field, and invoke `role_profile_update_draft` with the complete replacement
+   profile and the draft's exact revision. Present the new revision for review. On a version conflict,
+   reload before incorporating the user's correction again.
+8. Invoke CLI operation `standard_approve` only after an explicit approval. Pass the draft's exact
+   revision. An approved profile is immutable because it is part of that standard version. A later
+   material change requires a complete new draft and a new approved version.
+9. Use `standard_compare_versions` to explain approved changes. Report the field-level profile
+   additions, removals, and changes alongside topic and capability requirement differences.
 
 ## Change lifecycle
 

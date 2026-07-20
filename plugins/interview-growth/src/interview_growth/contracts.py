@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from interview_growth.application.context import ContextPacket
 from interview_growth.application.goals import DoctorReport
@@ -237,6 +237,26 @@ class CapabilityListOutput(BaseModel):
     capabilities: tuple[CapabilityOutput, ...]
 
 
+class RoleProfileInputContract(BaseModel):
+    """Structured role-profile fields with room for future extensions."""
+
+    model_config = ConfigDict(extra="allow", frozen=True)
+
+    role: str = Field(min_length=1, max_length=200)
+    level: str = Field(min_length=1, max_length=200)
+    company_types: tuple[str, ...] = ()
+    locations: tuple[str, ...] = ()
+    target_timeline: str | None = Field(default=None, max_length=500)
+    focus_areas: tuple[str, ...] = ()
+    responsibilities: tuple[str, ...] = ()
+    technologies: tuple[str, ...] = ()
+    constraints: tuple[str, ...] = ()
+    assumptions: tuple[str, ...] = ()
+
+    def to_domain(self) -> dict[str, Any]:
+        return self.model_dump(exclude_unset=True)
+
+
 class StandardDraftOutput(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -305,6 +325,68 @@ class StandardVersionListOutput(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     versions: tuple[StandardVersionOutput, ...]
+
+
+class CurrentRoleProfileOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    configured: bool
+    role_profile: dict[str, Any] | None
+    standard_version_id: str | None
+    version_number: int | None
+    approved_at: str | None
+
+    @classmethod
+    def from_domain(cls, value: StandardVersion | None) -> CurrentRoleProfileOutput:
+        if value is None:
+            return cls(
+                configured=False,
+                role_profile=None,
+                standard_version_id=None,
+                version_number=None,
+                approved_at=None,
+            )
+        return cls(
+            configured=True,
+            role_profile=value.role_profile,
+            standard_version_id=value.id,
+            version_number=value.version_number,
+            approved_at=value.approved_at,
+        )
+
+
+class RoleProfileFieldChangeOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    older: Any
+    newer: Any
+
+
+class RoleProfileDifferenceOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    added: dict[str, Any]
+    removed: dict[str, Any]
+    changed: dict[str, RoleProfileFieldChangeOutput]
+
+
+class RequirementDifferenceOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    added: tuple[str, ...]
+    removed: tuple[str, ...]
+    changed: tuple[str, ...]
+
+
+class StandardComparisonOutput(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    older_version: int
+    newer_version: int
+    role_profile_changed: bool
+    role_profile: RoleProfileDifferenceOutput
+    topic_requirements: RequirementDifferenceOutput
+    capability_requirements: RequirementDifferenceOutput
 
 
 class QuestionVersionOutput(BaseModel):

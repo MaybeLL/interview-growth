@@ -67,6 +67,8 @@ def test_structured_cli_lists_all_domain_operations(tmp_path: Path) -> None:
         "goal_select",
         "context_build",
         "standard_create_draft",
+        "role_profile_get_current",
+        "role_profile_update_draft",
         "question_capture",
         "interview_start",
         "attempt_record",
@@ -76,7 +78,13 @@ def test_structured_cli_lists_all_domain_operations(tmp_path: Path) -> None:
         "goal_export",
         "goal_delete",
     } <= names
-    assert len(names) == 52
+    assert len(names) == 54
+
+
+def test_role_profile_operation_exposes_structured_fields() -> None:
+    description = describe_operation("role_profile_update_draft")
+    schema = description["parameters"]["role_profile"]["schema"]
+    assert {"role", "level", "company_types", "technologies"} <= set(schema["properties"])
 
 
 def test_every_operation_exposes_a_json_schema() -> None:
@@ -114,6 +122,20 @@ def test_structured_cli_calls_goal_operations_over_stdin(tmp_path: Path) -> None
         {"session_id": "cli-session", "goal_id": goal_id},
     )
     assert selected.returncode == 0, selected.stderr
+    current_profile = _call_cli(
+        project_directory,
+        data_directory,
+        "role_profile_get_current",
+        {"session_id": "cli-session"},
+    )
+    assert current_profile.returncode == 0, current_profile.stderr
+    assert _output(current_profile)["data"] == {
+        "configured": False,
+        "role_profile": None,
+        "standard_version_id": None,
+        "version_number": None,
+        "approved_at": None,
+    }
     transitioned = _call_cli(
         project_directory,
         data_directory,
