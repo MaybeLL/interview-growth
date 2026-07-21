@@ -1,5 +1,7 @@
 # Interview Growth
 
+[![CI](https://github.com/MaybeLL/interview-growth/actions/workflows/ci.yml/badge.svg)](https://github.com/MaybeLL/interview-growth/actions/workflows/ci.yml)
+
 一个面向程序员求职面试的 Agent-native 成长系统。系统以“成长目标”为最大隔离容器，
 通过 Skill、结构化 CLI、Hook 和按需 Context Packet 帮助用户持续练习，并逐步积累可审计的能力证据。
 同一套领域核心可作为 Codex 或 Claude Code 插件安装。

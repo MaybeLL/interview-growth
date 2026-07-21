@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    working-directory: plugins/interview-growth
+
+jobs:
+  quality:
+    name: Python quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: plugins/interview-growth/uv.lock
+          python-version: "3.12"
+          working-directory: plugins/interview-growth
+
+      - name: Install locked dependencies
+        run: uv sync --locked --dev --no-editable
+
+      - name: Lint
+        run: uv run --locked --no-editable ruff check .
+
+      - name: Type check
+        run: uv run --locked --no-editable pyright
+
+      - name: Test
+        run: uv run --locked --no-editable pytest --cov=interview_growth --cov-report=term-missing
+
+      - name: Build package
+        run: uv build --out-dir "$RUNNER_TEMP/interview-growth-dist"
+
+  plugin-metadata:
+    name: Plugin metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Validate manifests, marketplace entries, hooks, and Skills
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          import tomllib
+          from pathlib import Path
+
+          repository = Path("../..").resolve()
+          plugin = Path(".").resolve()
+
+          codex_manifest = json.loads((plugin / ".codex-plugin/plugin.json").read_text())
+          claude_manifest = json.loads((plugin / ".claude-plugin/plugin.json").read_text())
+          pyproject = tomllib.loads((plugin / "pyproject.toml").read_text())
+          assert codex_manifest["name"] == "interview-growth"
+          assert claude_manifest["name"] == codex_manifest["name"]
+          assert claude_manifest["version"] == codex_manifest["version"]
+          assert pyproject["project"]["name"] == codex_manifest["name"]
+          assert pyproject["project"]["version"] == codex_manifest["version"]
+          assert (plugin / "hooks/hooks.json").is_file()
+          json.loads((plugin / "hooks/hooks.json").read_text())
+
+          skill_paths = sorted((plugin / "skills").glob("*/SKILL.md"))
+          assert skill_paths, "No Skills found"
+          skill_names = []
+          for skill_path in skill_paths:
+              content = skill_path.read_text()
+              assert content.startswith("---\n"), f"Missing frontmatter: {skill_path}"
+              frontmatter, separator, _ = content[4:].partition("\n---")
+              assert separator, f"Unterminated frontmatter: {skill_path}"
+              name_match = re.search(r"^name:\s*(\S+)\s*$", frontmatter, re.MULTILINE)
+              description_match = re.search(
+                  r"^description:\s*.+$", frontmatter, re.MULTILINE
+              )
+              assert name_match and description_match, f"Invalid frontmatter: {skill_path}"
+              skill_names.append(name_match.group(1))
+              assert skill_path.parent.name == name_match.group(1), skill_path
+          assert len(skill_names) == len(set(skill_names)), "Duplicate Skill names"
+
+          for marketplace_path in (
+              repository / ".agents/plugins/marketplace.json",
+              repository / ".claude-plugin/marketplace.json",
+          ):
+              marketplace = json.loads(marketplace_path.read_text())
+              assert marketplace["name"] == "maybell-plugins", marketplace_path
+              assert any(
+                  item["name"] == "interview-growth" for item in marketplace["plugins"]
+              ), marketplace_path
+
+          print(f"Validated {len(skill_paths)} Skills and both marketplace entries.")
+          PY
