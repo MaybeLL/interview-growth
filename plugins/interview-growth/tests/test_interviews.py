@@ -165,6 +165,33 @@ def _add_assessable_question(
     return prepared.id
 
 
+def test_interview_plan_preserves_structured_design_metadata(
+    goal_service_factory: Callable[[], GoalService],
+) -> None:
+    _, interviews, _, question_id, capability_id = _configured_goal(
+        goal_service_factory
+    )
+    plan = {
+        **_plan(),
+        "capability_coverage": [capability_id],
+        "critical_requirement_coverage": [capability_id],
+        "question_mix": {"technical": 1},
+        "debrief_mode": "structured",
+    }
+
+    started = interviews.start(
+        session_id="session-a",
+        plan=plan,
+        question_ids=(question_id,),
+        idempotency_key="structured-plan",
+    )
+
+    assert started.plan == plan
+    assert interviews.get_state(
+        session_id="session-a", interview_id=started.id
+    ).plan == plan
+
+
 def test_raw_attempt_survives_evaluation_failure_and_versions_stay_frozen(
     goal_service_factory: Callable[[], GoalService],
 ) -> None:
