@@ -4,7 +4,7 @@
 
 一个面向程序员求职面试的 Agent-native 成长系统。系统以“成长目标”为最大隔离容器，
 通过 Skill、结构化 CLI、Hook 和按需 Context Packet 帮助用户持续练习，并逐步积累可审计的能力证据。
-同一套领域核心可作为 Codex 或 Claude Code 插件安装。
+同一套领域核心可作为 Codex、Claude Code 或 Pi package 安装。
 
 当前已完成 M0–M4 的本地 MVP：
 
@@ -49,7 +49,14 @@ Codex：
 codex plugin marketplace add MaybeLL/interview-growth --ref main && codex plugin add interview-growth@maybell-plugins
 ```
 
-安装后新开会话即可开始创建成长目标。Codex 用户还需通过 `/hooks` 审查并信任插件 Hook。
+Pi：
+
+```bash
+pi install git:github.com/MaybeLL/interview-growth
+```
+
+安装后新开会话即可开始创建成长目标。Codex 用户还需通过 `/hooks` 审查并信任插件 Hook；
+Pi package 会自动加载七个 Skills，并通过薄 extension 注入当前 Pi session ID、执行存储健康检查和压缩前 checkpoint。
 完整说明见 [安装文档](plugins/interview-growth/docs/INSTALLATION.md)。
 
 ## 卸载

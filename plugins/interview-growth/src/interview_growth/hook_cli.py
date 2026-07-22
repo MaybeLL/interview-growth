@@ -28,6 +28,8 @@ def _read_hook_input() -> dict[str, Any]:
 def main() -> None:
     parser = argparse.ArgumentParser(prog="interview-growth-hook")
     parser.add_argument("command", choices=["healthcheck", "checkpoint"])
+    parser.add_argument("--session-id")
+    parser.add_argument("--event")
     args = parser.parse_args()
     payload = _read_hook_input()
     goals = GoalService(DataPaths.from_environment())
@@ -39,7 +41,9 @@ def main() -> None:
                 print(issue, file=sys.stderr)
             raise SystemExit(1)
     elif args.command == "checkpoint":
-        raw_session_id = payload.get("session_id", payload.get("sessionId"))
+        raw_session_id = args.session_id or payload.get(
+            "session_id", payload.get("sessionId")
+        )
         if not isinstance(raw_session_id, str) or not raw_session_id.strip():
             return
         interviews = InterviewService(goals)
@@ -47,7 +51,7 @@ def main() -> None:
             active = interviews.find_active(session_id=raw_session_id)
             if active is None:
                 return
-            raw_event = payload.get("hook_event_name", "pre_compact")
+            raw_event = args.event or payload.get("hook_event_name", "pre_compact")
             event = raw_event if isinstance(raw_event, str) else "pre_compact"
             interviews.checkpoint(
                 session_id=raw_session_id,

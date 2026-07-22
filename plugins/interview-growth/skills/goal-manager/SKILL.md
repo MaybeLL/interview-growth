@@ -13,7 +13,10 @@ assumptions, and user approval explicit.
 Resolve `<plugin-root>` as two directories above this `SKILL.md`. Run `uv run --locked --no-editable
 --project "<plugin-root>" interview-growth call <operation>` and pass exactly one JSON object on
 stdin. Read only the returned `{ok,data,error}` envelope. Stop dependent work when `ok` is false;
-inspect a contract with `interview-growth operations <operation>` when needed.
+inspect a contract with `interview-growth operations <operation>` when needed. For every operation
+that accepts `session_id`, use the host-provided session ID. In Pi, use the exact
+`INTERVIEW_GROWTH_SESSION_ID` value injected by the package adapter; never invent or reuse an ID
+from another Pi session.
 
 ## Establish scope
 

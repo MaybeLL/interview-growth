@@ -13,7 +13,8 @@
 *.db-wal
 *.igx
 
-# Python and test artifacts
+# Python, Node.js, and test artifacts
+node_modules/
 .venv/
 __pycache__/
 *.py[cod]

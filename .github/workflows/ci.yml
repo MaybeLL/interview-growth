@@ -71,14 +71,22 @@ jobs:
 
           codex_manifest = json.loads((plugin / ".codex-plugin/plugin.json").read_text())
           claude_manifest = json.loads((plugin / ".claude-plugin/plugin.json").read_text())
+          pi_manifest = json.loads((repository / "package.json").read_text())
           pyproject = tomllib.loads((plugin / "pyproject.toml").read_text())
           assert codex_manifest["name"] == "interview-growth"
           assert claude_manifest["name"] == codex_manifest["name"]
           assert claude_manifest["version"] == codex_manifest["version"]
           assert pyproject["project"]["name"] == codex_manifest["name"]
           assert pyproject["project"]["version"] == codex_manifest["version"]
+          assert pi_manifest["version"] == codex_manifest["version"]
           assert (plugin / "hooks/hooks.json").is_file()
           json.loads((plugin / "hooks/hooks.json").read_text())
+          assert "pi-package" in pi_manifest["keywords"]
+          pi_resources = pi_manifest["pi"]
+          assert pi_resources["skills"] == ["./plugins/interview-growth/skills"]
+          assert pi_resources["extensions"] == ["./extensions/interview-growth-pi.ts"]
+          for resource in (*pi_resources["skills"], *pi_resources["extensions"]):
+              assert (repository / resource).exists(), resource
 
           skill_paths = sorted((plugin / "skills").glob("*/SKILL.md"))
           assert skill_paths, "No Skills found"
@@ -107,5 +115,7 @@ jobs:
                   item["name"] == "interview-growth" for item in marketplace["plugins"]
               ), marketplace_path
 
-          print(f"Validated {len(skill_paths)} Skills and both marketplace entries.")
+          print(
+              f"Validated {len(skill_paths)} Skills, both marketplace entries, and Pi resources."
+          )
           PY

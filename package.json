@@ -1,0 +1,25 @@
+{
+  "name": "interview-growth-pi-package",
+  "version": "0.8.0",
+  "private": true,
+  "description": "Pi package adapter for the Interview Growth agent-native interview practice system.",
+  "license": "MIT",
+  "keywords": [
+    "pi-package",
+    "interview",
+    "software-engineering",
+    "career-growth"
+  ],
+  "type": "module",
+  "pi": {
+    "extensions": [
+      "./extensions/interview-growth-pi.ts"
+    ],
+    "skills": [
+      "./plugins/interview-growth/skills"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  }
+}

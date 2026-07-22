@@ -1,8 +1,8 @@
 # Install Interview Growth
 
 This repository exposes Interview Growth through repo-scoped Codex and Claude Code marketplaces.
-Both hosts reuse the same Skills, structured JSON CLI, deterministic hooks, and local SQLite
-storage; no MCP server is required.
+Codex, Claude Code, and Pi reuse the same Skills, structured JSON CLI, lifecycle guards, and local
+SQLite storage; no MCP server is required.
 
 ## Prerequisites
 
@@ -37,6 +37,27 @@ claude plugin install interview-growth@maybell-plugins --scope user
 Start a new Claude Code session after installation. Claude Code discovers the seven Skills and
 lifecycle hooks from the installed plugin automatically. The first CLI invocation may download a
 managed Python 3.12 runtime and the locked dependencies through `uv`.
+
+## Install in Pi from GitHub
+
+Install the repository as a Pi package:
+
+```bash
+pi install git:github.com/MaybeLL/interview-growth
+```
+
+Start a new Pi session after installation. The package loads the same seven Skills plus a thin Pi
+extension that injects the current Pi session UUID for goal binding, checks storage on session
+startup, and checkpoints an active interview before context compaction. Invoke a Skill explicitly
+with `/skill:goal-manager`, `/skill:interview`, or another installed Skill when needed.
+
+For a project-local installation shared through `.pi/settings.json`, run:
+
+```bash
+pi install -l git:github.com/MaybeLL/interview-growth
+```
+
+The project must be trusted before Pi loads or installs project-local resources.
 
 ## Install from a local checkout
 
@@ -94,6 +115,14 @@ codex plugin marketplace upgrade maybell-plugins
 claude plugin marketplace update maybell-plugins
 ```
 
+```bash
+pi update git:github.com/MaybeLL/interview-growth
+```
+
+Pi Git installs without an `@ref` follow the repository's default branch when explicitly updated.
+Use `pi update --extensions` to update all unpinned Pi packages. If a Git source was installed with a
+tag or commit ref, reinstall it with the desired new ref instead.
+
 If this repository was previously registered under the old `personal` marketplace name, migrate it
 once before reinstalling:
 
@@ -104,8 +133,19 @@ codex plugin add interview-growth@maybell-plugins
 ```
 
 For a local checkout, update the source, run `uv sync --dev --no-editable`, validate the plugin, and
-restart the desktop app. Use `codex plugin marketplace list` to confirm which marketplace root Codex
-resolved.
+restart the host. Use `codex plugin marketplace list` to confirm which marketplace root Codex
+resolved, or `pi list` to confirm the Pi package source.
+
+## Uninstall from Pi
+
+Remove the global package without deleting Interview Growth's application data:
+
+```bash
+pi remove git:github.com/MaybeLL/interview-growth
+```
+
+For a project-local installation, add `-l`. Goal databases remain in the host-independent data
+directory described below.
 
 ## Privacy
 

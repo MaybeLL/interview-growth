@@ -500,6 +500,47 @@ def test_role_contexts_separate_interviewing_evaluation_and_coaching(
     assert "must be stored as assisted practice" in coach_context
 
 
+def test_precompact_hook_accepts_explicit_pi_session_arguments(
+    goal_service_factory: Callable[[], GoalService],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    goals, interviews, _, question_id, _ = _configured_goal(goal_service_factory)
+    started = interviews.start(
+        session_id="session-a",
+        plan=_plan(),
+        question_ids=(question_id,),
+        idempotency_key="start",
+    )
+    monkeypatch.setenv("INTERVIEW_GROWTH_DATA_DIR", str(goals.paths.root))
+    monkeypatch.setattr(sys, "stdin", io.StringIO(""))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "interview-growth-hook",
+            "checkpoint",
+            "--session-id",
+            "session-a",
+            "--event",
+            "pi:threshold",
+        ],
+    )
+
+    hook_main()
+
+    with connect_database(goals.paths.goal_database(goals.get_current_goal(
+        session_id="session-a"
+    ).id)) as connection:
+        rows = connection.execute(
+            """
+            SELECT reason FROM interview_checkpoints
+            WHERE interview_id = ? ORDER BY created_at, id
+            """,
+            (started.id,),
+        ).fetchall()
+    assert [row["reason"] for row in rows] == ["interview_started", "hook:pi:threshold"]
+
+
 def test_precompact_hook_checkpoints_active_interview_without_parsing_chat(
     goal_service_factory: Callable[[], GoalService],
     monkeypatch: pytest.MonkeyPatch,
