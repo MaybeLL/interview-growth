@@ -1,0 +1,439 @@
+# Goal Optimization System — v1 Spec
+
+> 状态:Draft(待评审)
+> 版本:spec-v0.1
+> 取代:旧设计白皮书(新系统在 `release-v1` 分支;旧设计保留在 `main` 分支与 git 历史中)
+
+---
+
+## 1. 定位
+
+**一个以"目标"为中心、以"能力"为状态、以"证据"为依据、以"优化"为核心循环的个人能力操作系统(Personal Capability Operating System)。**
+
+它不关心用户学了什么,而关心:
+
+> 用户距离目标还有多远,以及下一单位时间投入在哪里,能最大幅度缩小与目标之间的差距?
+
+系统本质是一个作用于人的优化循环:
+
+```
+Observe(记录表现) → Evaluate(评估能力) → Optimize(找最优行动) → Execute(执行) → Observe...
+```
+
+### 1.1 核心原则
+
+1. **目标驱动** — 一切围绕目标,而不是围绕知识点。
+2. **能力建模** — 能力被显式表示为可观测的状态向量,不是黑盒。
+3. **证据更新** — 能力分数不能主观填写,必须由表现证据驱动更新。
+4. **优化优先** — 系统始终回答:下一步投入在哪里收益最大?
+5. **本地优先** — 纯文本文件 + Git 即是全部事实源;Agent 只负责分析和更新;任何 Agent(Claude Code / Codex / Cursor)都可接入;用户拥有完整数据主权。
+
+### 1.2 架构定性
+
+**本地优先、事件溯源式的能力证据系统:原始表现不可覆盖,能力状态可以重新计算,任何能力判断都能追溯到具体证据。**
+
+三个概念严格分离:
+
+- **历史表现是事实**(Event + Artifact)
+- **能力评估是对事实的推断**(Observation → Capability Projection)
+- **下一步计划是基于推断做出的决策**(Gap → Plan)
+
+### 1.3 v1 场景
+
+只做一个极窄场景:**后端工程师系统设计面试**。不做通用考试、不做通用求职、不做能力本体。
+
+---
+
+## 2. 系统不变量(架构验收标准)
+
+以下不变量必须始终成立,违反任何一条即为架构级 bug:
+
+- **INV-1(事实不可变)** `artifacts/` 与 `data/events.jsonl` 只允许追加,永不覆盖、永不删除、永不改写。
+- **INV-2(推断可再生)** `state/` 目录整体可再生:`rm -rf state/ && goal assess` 必须从 events + observations 完整重建所有能力状态,结果逐字节一致(确定性)。
+- **INV-3(证据链完整)** 每条 Observation 必须引用一个 event_id;每个 event 必须引用 artifact 路径。任何能力结论都能沿链回溯到原始表现文本。
+- **INV-4(推断带版本)** 每条 Observation 记录 rubric 版本 + 提取模型 + prompt 版本;每份 Projection 记录 estimator 版本 + 截止 event。能力数值变化必须能区分"用户变了"还是"评估标准变了"。
+- **INV-5(职责分离)** LLM 负责理解、结构化、解释;确定性引擎负责权重、聚合、衰减、置信度计算。LLM 永远不直接产出能力分数。
+- **INV-6(无外部依赖)** 全部状态存在纯文本文件(JSONL / YAML / JSON / Markdown)中。无数据库、无账号、无云同步。Git 即同步机制。
+
+---
+
+## 3. Workspace 布局
+
+每个目标一个独立目录,互不影响,Agent 进入目录即可工作:
+
+```
+goals/
+  backend-system-design/
+    goal.yaml                 # 目标定义 + Requirement Model(人工编辑,git 版本化)
+    rubric/
+      system-design-v0.1.yaml # 评估规约,不可变;修订=新文件 v0.2
+    artifacts/                # 原始表现,只增不改(INV-1)
+      interviews/
+      answers/
+    data/
+      events.jsonl            # Event Store,append-only(INV-1)
+      observations.jsonl      # 结构化观测,append-only
+    state/                    # 全部派生,可随时重算(INV-2),gitignore 可选
+      capability.json
+      gap.json
+      plan.json
+    reports/                  # goal explain / progress 的人类可读输出
+```
+
+---
+
+## 4. 数据契约
+
+### 4.1 能力维度(六维向量)
+
+每项能力 `k` 的状态是一个六维向量,不是单一分数:
+
+| 维度 | key | 含义 | 典型证据 |
+|---|---|---|---|
+| 接触 | `exposure` | 见过、读过 | 阅读材料、看课程 |
+| 识别 | `recognition` | 能认出、能选对 | 选择题、判断题 |
+| 回忆 | `recall` | 无提示能解释 | 口头/书面解释概念 |
+| 应用 | `application` | 已知类型任务中能用 | 熟悉场景任务完成 |
+| 迁移 | `transfer` | 陌生场景中能用 | 变式/跨业务任务 |
+| 自动化 | `automaticity` | 限时低错误率稳定完成 | 限时反复表现 |
+
+约束:
+
+- 维度间存在递进倾向但**不实现为硬约束**;v1 每条 Observation 只更新其显式声明的维度(跨维度软推断为 v2+)。
+- 每个 `(capability, dimension)` 对独立维护 `score`(0–1)与 `confidence`(0–1)。低分 ≠ 低置信度:`score 0.3 / confidence 0.9` 表示"确定较弱";`score 0.3 / confidence 0.15` 表示"证据不足",此时最优行动是诊断而非训练。
+
+### 4.2 goal.yaml — 目标与 Requirement Model
+
+```yaml
+goal_id: backend-system-design
+title: 后端系统设计面试
+created_at: 2026-07-01
+target_date: 2026-10-01          # 可选
+
+# Requirement Model:目标对每个 (capability, dimension) 的要求与权重
+requirements:
+  - capability: idempotency
+    dimension: transfer
+    required: 0.75               # 目标水平 (0-1)
+    weight: 0.9                  # 该项对目标的重要度 (0-1)
+    critical: true               # 门槛项:不达标则目标整体不达标
+  - capability: communication_structure
+    dimension: application
+    required: 0.70
+    weight: 0.7
+    critical: false
+  # ...
+
+rubric_version: system-design-v0.1   # 当前使用的 rubric
+```
+
+规则:
+
+- `requirements` 是人工定义并 git 版本化的(v1 由 Agent 辅助起草、用户批准);它就是优化问题中的目标状态 x*。
+- 修改 requirements 直接 git commit,历史由 git 承载,不需要额外版本机制。
+
+### 4.3 rubric/*.yaml — 评估规约(不可变)
+
+Rubric 是 Observation 提取的依据,必须具体到**可判定的行为锚点**,不给 LLM 自由发挥空间:
+
+```yaml
+rubric_id: system-design-v0.1
+capabilities:
+  - id: idempotency
+    name: 幂等设计
+    anchors:
+      - dimension: recall
+        pass: 无提示说明幂等键的作用与实现方式
+        partial: 提示后能解释
+        fail: 无法解释或解释错误
+      - dimension: transfer
+        pass: 在陌生业务中主动识别重复提交风险并给出正确方案(含并发窗口)
+        partial: 识别风险但方案有漏洞(如未区分 request_id 与业务意图)
+        fail: 未识别风险
+  # ...
+```
+
+规则:
+
+- Rubric 文件一经引用即不可变;修订产生新文件(`v0.2`),旧 Observation 保留旧版本引用(INV-4)。
+- 每个 anchor 的 pass/partial/fail 映射为 result 数值:pass=1.0,partial=0.5,fail=0.0(LLM 可在 ±0.2 内微调并说明理由)。
+
+### 4.4 events.jsonl — 表现事件(第一层:事实)
+
+每行一个 JSON 对象:
+
+```json
+{
+  "event_id": "evt_000042",
+  "type": "mock_interview",
+  "occurred_at": "2026-07-28T20:30:00+08:00",
+  "task": {
+    "topic": "design_a_payment_system",
+    "difficulty": 0.6,
+    "duration_minutes": 45,
+    "novelty": "unseen"
+  },
+  "conditions": {
+    "time_limit": true,
+    "hints": false,
+    "external_materials": false,
+    "evaluator": "agent"
+  },
+  "artifacts": ["artifacts/interviews/2026-07-28-payment.md"]
+}
+```
+
+字段约束:
+
+- `event_id`:单调递增,格式 `evt_` + 6 位零填充序号。
+- `type` 枚举(v1):`mock_interview` | `practice` | `explanation` | `quiz` | `reading` | `real_interview` | `project_work`。
+- `task.novelty` 枚举:`unseen` | `variant` | `familiar` | `repeat`。
+- `conditions` 记录独立性条件(是否限时/提示/查资料),供权重计算使用。
+- **事件只记事实,不含任何评价**。评价属于 Observation 层。
+- 行为日志(如"阅读 30 分钟")可以记录为 `reading` 事件,但其证据权重天然极低(见 §5.1),系统关心的是表现证据而非行为日志。
+
+### 4.5 observations.jsonl — 结构化观测(第二层:推断的中间产物)
+
+每行一个 JSON 对象,由 LLM 按 rubric 从 event 的 artifact 中提取:
+
+```json
+{
+  "obs_id": "obs_000107",
+  "event_id": "evt_000042",
+  "capability": "idempotency",
+  "dimension": "transfer",
+  "result": 0.4,
+  "evidence": "未处理同一支付意图使用不同 request_id 的情况",
+  "artifact_ref": "artifacts/interviews/2026-07-28-payment.md#L120-L145",
+  "rubric_version": "system-design-v0.1",
+  "extractor": {
+    "model": "claude-sonnet-4-5",
+    "prompt_version": "observe-v0.1"
+  },
+  "extracted_at": "2026-07-28T21:00:00+08:00"
+}
+```
+
+字段约束:
+
+- `result` ∈ [0, 1],由 rubric anchor 映射而来。
+- `evidence` 为一句话摘录/概括;`artifact_ref` 必须指向 artifact 内具体位置(INV-3)。
+- 同一 event 可产生多条 Observation(不同 capability × dimension)。
+- Observation append-only:用新 rubric 重新提取时追加新记录,旧记录保留;聚合时同一 `(event_id, capability, dimension)` 只取最新 rubric 版本的记录。
+
+### 4.6 state/capability.json — 能力投影(第三层:完全派生)
+
+```json
+{
+  "estimator_version": "weighted-evidence-v0.1",
+  "generated_at": "2026-07-28T21:05:00+08:00",
+  "source_event_until": "evt_000042",
+  "rubric_version": "system-design-v0.1",
+  "capabilities": {
+    "idempotency": {
+      "recall":   { "score": 0.82, "confidence": 0.79, "observation_count": 4 },
+      "transfer": { "score": 0.38, "confidence": 0.54, "observation_count": 3 }
+    }
+  }
+}
+```
+
+### 4.7 state/gap.json — 差距分析(派生)
+
+```json
+{
+  "generated_at": "2026-07-28T21:05:00+08:00",
+  "against": "goal.yaml@<git-sha>",
+  "gaps": [
+    {
+      "capability": "idempotency",
+      "dimension": "transfer",
+      "current": 0.38,
+      "required": 0.75,
+      "gap": 0.37,
+      "weight": 0.9,
+      "critical": true,
+      "confidence": 0.54,
+      "priority": 0.333,
+      "mode": "train"
+    }
+  ]
+}
+```
+
+### 4.8 state/plan.json — 行动计划(派生)
+
+```json
+{
+  "generated_at": "2026-07-28T21:06:00+08:00",
+  "actions": [
+    {
+      "rank": 1,
+      "task": "设计优惠券领取接口的重复提交保护",
+      "targets": [{ "capability": "idempotency", "dimension": "transfer" }],
+      "mode": "train",
+      "rationale": "recall 已较高(0.82),缺口集中在 transfer;优惠券场景可验证跨业务迁移;兼具训练与诊断价值",
+      "estimated_minutes": 20
+    }
+  ]
+}
+```
+
+**v1 明确不输出 "预计提升 +0.8" 这类 ΔCapability 数值**——没有历史数据支撑,假精确破坏可信度。只做排序 + 文字理由。
+
+---
+
+## 5. 确定性估计引擎(estimator: weighted-evidence-v0.1)
+
+### 5.1 单条证据权重
+
+```
+w = difficulty × independence × novelty × reliability × recency
+```
+
+各因子取值(全部 ∈ (0, 1],由 event 字段确定性映射,不经 LLM):
+
+| 因子 | 来源 | 映射 |
+|---|---|---|
+| `difficulty` | event.task.difficulty | 直接取值,下限 0.2 |
+| `independence` | event.conditions | 无提示且不查资料=1.0;有提示=0.5;跟随材料=0.2 |
+| `novelty` | event.task.novelty | unseen=1.0,variant=0.8,familiar=0.5,repeat=0.25 |
+| `reliability` | event.type | mock_interview/real_interview=0.9,practice/explanation=0.7,quiz=0.5,reading=0.1 |
+| `recency` | occurred_at | 指数衰减 `exp(-Δdays / 90)`,下限 0.3 |
+
+### 5.2 分数聚合
+
+对每个 `(capability, dimension)`,取全部有效 Observation:
+
+```
+score = Σ(wᵢ × rᵢ) / Σ(wᵢ)
+```
+
+### 5.3 置信度(v1 从简,只用两个因子)
+
+```
+confidence = saturation(Σwᵢ) × diversity
+
+saturation(W) = 1 − exp(−W / 1.5)      # 有效证据量:权重和越大越确定,边际递减
+diversity     = 0.5 + 0.5 × min(unique_contexts, 4) / 4
+                                        # 场景多样性:unique task.topic 数,1 个场景封顶 0.625
+```
+
+**校准锚点(demo 标定):** 半饱和权重 `k=1.5` 使"~5 条扎实的独立证据(每条 w≈0.5,Σwᵢ≈2.5)、跨 ≥3 个场景 → confidence ≈ 0.70";`diagnose→train` 边界(0.4)约在第 3 条扎实证据跨过。`k` 越小,置信度随证据量上升越快。
+
+**乘积结构是刻意的,不是简化:** confidence 是 saturation 与 diversity 的乘积,因此"数量"无法单独顶上去——5 条证据若全挤在同一场景,diversity 封顶 0.625,confidence 最高只到 ~0.51。即"在单一场景刷 5 次" ≠ "对该能力的迁移已有把握"。多场景验证不足就不给高置信度,这是 transfer 维度应有的严格性。
+
+evaluator_diversity、time_span 等因子推迟到 v2,待有真实数据校准。
+
+### 5.4 Gap 与优先级
+
+```
+gap      = max(0, required − score)
+priority = gap × weight × (0.5 + 0.5 × confidence)
+mode     = "diagnose"  if confidence < 0.4   # 证据不足→先安排诊断任务
+           "train"     otherwise
+critical 项排序时置顶。
+```
+
+---
+
+## 6. 命令契约(五个命令 + 一个解释命令)
+
+闭环:`record → observe → assess → explain → next → record ...`
+
+所有命令是确定性 CLI(除 observe 的提取步骤由 Agent 执行);输出为 JSON(机器)+ 简明文本(人)。
+
+### 6.1 `goal record`
+
+记录一次表现。
+
+- 输入:type、task 元数据、conditions、artifact 文件路径(已有文件或从 stdin 写入)。
+- 行为:校验 artifact 存在 → 追加一行到 `events.jsonl` → 返回 event_id。
+- 禁止:修改已有 event(INV-1)。
+
+### 6.2 `goal observe <event_id>`
+
+从表现中提取结构化观测。
+
+- 分工:CLI 输出该 event 的 artifact 内容 + 当前 rubric,**Agent(LLM)** 按 rubric anchor 生成 Observation 草稿,CLI 校验 schema(capability/dimension 在 rubric 中存在、result ∈ [0,1]、artifact_ref 格式合法)后追加写入 `observations.jsonl`。
+- LLM 不接触任何历史分数,只看本次 artifact + rubric(防锚定)。
+
+### 6.3 `goal assess`
+
+重算能力投影。
+
+- 行为:读全部 events + observations → 按 §5 公式计算 → 覆写 `state/capability.json`、`state/gap.json`。
+- 纯确定性,无 LLM 参与(INV-5)。幂等:重复运行结果一致(INV-2)。
+
+### 6.4 `goal explain <capability>[.<dimension>]`
+
+解释能力结论的证据链。系统可观测性的核心命令。
+
+- 输出:当前估计与置信度;按权重排序的正向/负向证据(每条含日期、event 类型、evidence 文本、权重、artifact_ref);置信度为什么不是更高(场景数、证据分布)。
+- 全部内容由确定性引擎从 observations 生成,LLM 只做措辞润色(可选)。
+
+### 6.5 `goal next`
+
+选择下一项最有价值的行动。
+
+- 分工:CLI 输出按 priority 排序的 gap 列表(含 mode),**Agent(LLM)** 据此设计 1–3 个具体任务(diagnose 型或 train 型),写入 `state/plan.json`,并向用户解释理由。
+- 只排序,不给 ΔCapability 数值。
+
+### 6.6 `goal init <goal-name>`
+
+创建 workspace 骨架 + Agent 辅助起草 goal.yaml(requirements 需用户确认后生效)。
+
+---
+
+## 7. Agent 接入方式
+
+- 系统 = 结构化 CLI(确定性核心)+ Skill(场景 prompt)。不做 MCP Server,不做 UI(继承旧 ADR-0012/0015 原则)。
+- v1 Skills:`interviewer`(出题并主持模拟面试,产出 artifact)、`observer`(§6.2 的提取角色)、`coach`(§6.5 的任务设计角色)。interviewer 与 observer 上下文隔离:面试时不加载历史能力数据,防止出题被当前分数污染。
+- 未来 UI(如有)只是本地文件的 Viewer,不持有状态。
+
+---
+
+## 8. v1 范围裁决
+
+### 做
+
+- 单场景:后端系统设计面试
+- 六维能力向量 + 双值(score/confidence)
+- JSONL 事件溯源 + 确定性 estimator + 证据链 explain
+- 五命令闭环 + 三个 Skill
+
+### 不做(明确推迟)
+
+| 项 | 推迟原因 |
+|---|---|
+| SQLite | 数据量不需要;将来只能作为 JSONL 的派生索引,永不做事实源 |
+| 维度间软约束推断 | 需要贝叶斯建模,先积累真实数据 |
+| ΔCapability 数值预估 | 无数据支撑,假精确 |
+| 多因子置信度(evaluator/time_span) | 无法校准 |
+| 盲重评、评价争议 | v2 校验机制 |
+| 通用能力本体、多场景 | 先验证单场景闭环 |
+| UI / Dashboard | 文件即接口 |
+
+---
+
+## 9. v1 要验证的三个假设(而非评分准确性)
+
+1. **提取稳定性**:Agent 能否把一次复杂表现按 rubric 稳定拆解成结构化 Observation?(同一 artifact 重复提取,capability/dimension 判定一致率 > 80%)
+2. **判断可认可性**:用户看到能力结论时,能否通过 `goal explain` 的证据链理解并认可判断?
+3. **推荐针对性**:`goal next` 基于历史表现的推荐,是否比用户随意选择更有针对性?
+
+验证优先级高于:精确评分模型、通用本体、RL、0–100 统一分。
+
+---
+
+## 10. 与旧设计(保留在 `main` 分支)的关系
+
+| 旧设计资产 | 处置 |
+|---|---|
+| 证据优先/append-only/派生分数 三不变量 | **原样继承**,升格为 INV-1/2/3 |
+| Agent 推理 + CLI 确定性(ADR-0012) | **继承**为 INV-5 |
+| 无 MCP、Skill+CLI+Hook(ADR-0015) | **继承**(v1 甚至不用 Hook) |
+| SQLite 35 张表 | 废弃:Projection 被当事实存储是复杂度失控根源 |
+| 面试官/评价者/教练三角色隔离 | 简化继承为 interviewer/observer/coach |
+| 独立证据 vs 辅助练习 | 泛化为连续的 `independence` 权重因子 |
+| 盲重评/争议/训练处方/复测计划 | 推迟 v2 |

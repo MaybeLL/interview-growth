@@ -3,29 +3,10 @@
 .env.*
 !.env.example
 
-# Interview Growth private data and exports
-.interview-growth-data/
-*.sqlite
-*.sqlite3
-*.db
-*.db-journal
-*.db-shm
-*.db-wal
-*.igx
-
-# Python, Node.js, and test artifacts
+# Node.js
 node_modules/
-.venv/
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.ruff_cache/
-.mypy_cache/
-.coverage
-htmlcov/
 dist/
 build/
-*.egg-info/
 
 # Editor and operating-system files
 .DS_Store
