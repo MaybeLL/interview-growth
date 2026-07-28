@@ -58,26 +58,41 @@ Observe(记录表现) → Evaluate(评估能力) → Optimize(找最优行动) �
 
 ## 3. Workspace 布局
 
-每个目标一个独立目录,互不影响,Agent 进入目录即可工作:
+每个目标一个独立目录(workspace),互不影响。所有命令通过显式 `--workspace <dir>` 指向它——CLI **位置无关**,不探测"项目根",不硬编码存储位置。workspace 放哪由用户决定:
 
 ```
-goals/
-  backend-system-design/
-    goal.yaml                 # 目标定义 + Requirement Model(人工编辑,git 版本化)
-    rubric/
-      system-design-v0.1.yaml # 评估规约,不可变;修订=新文件 v0.2
-    artifacts/                # 原始表现,只增不改(INV-1)
-      interviews/
-      answers/
-    data/
-      events.jsonl            # Event Store,append-only(INV-1)
-      observations.jsonl      # 结构化观测,append-only
-    state/                    # 全部派生,可随时重算(INV-2),gitignore 可选
-      capability.json
-      gap.json
-      plan.json
-    reports/                  # goal explain / progress 的人类可读输出
+<workspace>/                  # --workspace 指向的任意目录
+  goal.yaml                   # 目标定义 + Requirement Model(人工编辑,git 版本化)
+  rubric/
+    system-design-v0.1.yaml   # 评估规约,不可变;修订=新文件 v0.2
+  artifacts/                  # 原始表现文本文件,只增不改(INV-1)
+    interviews/
+    answers/
+  data/
+    events.jsonl              # Event Store,append-only(INV-1)
+    observations.jsonl        # 结构化观测,append-only
+  state/                      # 全部派生,可随时重算(INV-2),gitignore 可选
+    capability.json
+    gap.json
+    plan.json
+  reports/                    # goal explain / progress 的人类可读输出
 ```
+
+存储位置是**约定,不是行为**。两种典型摆法(工具都不关心,只认 `--workspace`):
+
+- **独立成长仓库(推荐默认):** 数据即主角,goal 可见地放在根部,便于 git 追踪与浏览。
+  ```
+  my-growth/                  # 自身是一个 git 仓库
+    backend-system-design/    # --workspace my-growth/backend-system-design
+    toefl/                    # --workspace my-growth/toefl
+  ```
+- **寄居在宿主代码项目里:** 数据是配套,用 dotdir 收纳。
+  ```
+  some-code-repo/
+    .goal-optimizer/backend-system-design/   # --workspace .goal-optimizer/backend-system-design
+  ```
+
+多个 goal 共享一个父目录是可以的(便于未来 `goal list` 枚举),但每个 goal 仍是独立、可单独 commit 的单元。
 
 ---
 
