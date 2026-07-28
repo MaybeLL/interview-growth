@@ -1,9 +1,15 @@
 #!/usr/bin/env node
-// goal-optimizer demo CLI — deterministic core (INV-5: no LLM here, numbers only).
-// Subcommands: record | observe | assess | explain
+// goal-optimizer CLI — deterministic core (INV-5: no LLM here, numbers only).
+// Subcommands: record | retract | observe | assess | explain
 //
 // Design notes:
 // - Facts (events.jsonl, observations.jsonl, artifacts/) are append-only (INV-1).
+//   Corrections are retraction events (§4.4.3), never edits.
+// - Events carry schema: "event-v2". Legacy events without a schema field are
+//   read under v1 semantics (novelty as self-reported claim, no hash check) and
+//   are never migrated (INV-4: additive only).
+// - novelty is derived from history at record time; artifacts are notarized by
+//   sha256 at record time and verified on every read (hard fail on mismatch).
 // - state/ (capability.json, gap.json) is fully derived and recomputable (INV-2):
 //     rm -rf state/ && node goal.mjs assess  must reproduce byte-identical output.
 //   To make assess a pure function of its inputs, "now" for recency decay is NOT
@@ -11,6 +17,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, readdirSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
+import { createHash } from "node:crypto";
 
 // ---------------------------------------------------------------------------
 // arg parsing
@@ -156,6 +163,54 @@ function readJsonl(path) {
     .map((l) => JSON.parse(l));
 }
 
+// --- event-v2 helpers -------------------------------------------------------
+// Events without a `schema` field are v1 (legacy): novelty was self-reported,
+// no artifact hash. They are read as-is, never migrated (INV-4: additive only).
+
+function sha256File(path) {
+  return createHash("sha256").update(readFileSync(path)).digest("hex");
+}
+
+// Facts split: retractions are meta-events; active events are performance
+// events not covered by any retraction (§4.4.3).
+function splitEvents(allEvents) {
+  const retracted = new Set(
+    allEvents.filter((e) => e.type === "retraction").map((e) => e.refers_to)
+  );
+  const active = allEvents.filter((e) => e.type !== "retraction" && !retracted.has(e.event_id));
+  const retractions = allEvents.filter((e) => e.type === "retraction");
+  return { active, retractions, retracted };
+}
+
+// Verify each artifact of a v2 event against its recorded hash; hard fail on
+// mismatch (INV-3 notarization). v1 events (no schema/hash) are skipped.
+function verifyArtifacts(wsDir, ev) {
+  if (!ev.schema || !Array.isArray(ev.artifact_sha256)) return;
+  ev.artifacts.forEach((rel, i) => {
+    const expected = ev.artifact_sha256[i];
+    if (!expected) return;
+    const actual = sha256File(join(wsDir, rel));
+    if (actual !== expected) {
+      die(
+        `artifact hash mismatch for ${ev.event_id}: ${rel}\n` +
+          `  recorded ${expected}\n  actual   ${actual}\n` +
+          `The artifact was modified after recording (INV-1 violation). ` +
+          `Remedy: goal.mjs retract ${ev.event_id} --reason "..." and re-record.`
+      );
+    }
+  });
+}
+
+// Derive novelty from history (§4.4.2): count prior active events with the
+// same topic. Self-reporting is not accepted; --variant is an explicit claim.
+function deriveNovelty(activeEvents, topic, variantClaimed) {
+  if (variantClaimed) return "variant";
+  const prior = activeEvents.filter((e) => (e.task?.topic ?? "") === topic).length;
+  if (prior === 0) return "unseen";
+  if (prior === 1) return "familiar";
+  return "repeat";
+}
+
 function loadGoal(wsDir) {
   const p = join(wsDir, "goal.yaml");
   if (!existsSync(p)) die(`goal.yaml not found in ${wsDir}`);
@@ -247,6 +302,7 @@ function cmdRecord(flags) {
   const dataDir = join(wsDir, "data");
   mkdirSync(dataDir, { recursive: true });
   const events = readJsonl(join(dataDir, "events.jsonl"));
+  const { active } = splitEvents(events);
 
   const artifact = flags.artifact;
   if (!artifact) die("--artifact <path relative to workspace> is required");
@@ -254,17 +310,23 @@ function cmdRecord(flags) {
   if (!existsSync(artAbs)) die(`artifact not found: ${artAbs}`);
 
   if (!flags.type) die("--type is required");
+  if (flags.type === "retraction") die("use the retract subcommand, not record --type retraction");
   if (!flags["occurred-at"]) die("--occurred-at <ISO8601> is required");
+  // novelty is derived from history (§4.4.2), never self-reported.
+  if (flags.novelty) die("--novelty is not accepted: novelty is derived from history (use --variant to claim a variant task)");
 
+  const topic = String(flags.topic ?? "");
   const ev = {
+    schema: "event-v2",
     event_id: nextId(events, "event_id", "evt_"),
     type: String(flags.type),
     occurred_at: String(flags["occurred-at"]),
+    ...(flags.session ? { session_id: String(flags.session) } : {}),
     task: {
-      topic: String(flags.topic ?? ""),
-      difficulty: flags.difficulty !== undefined ? Number(flags.difficulty) : 0.5,
-      duration_minutes: flags.duration !== undefined ? Number(flags.duration) : null,
-      novelty: String(flags.novelty ?? "familiar"),
+      topic,
+      difficulty: flags.difficulty !== undefined ? Number(flags.difficulty) : 0.5, // claim, not fact (§4.4)
+      duration_minutes: flags.duration !== undefined ? Number(flags.duration) : null, // actual time spent
+      novelty: deriveNovelty(active, topic, flags.variant === true || flags.variant === "true"),
     },
     conditions: {
       time_limit: flags["time-limit"] === true || flags["time-limit"] === "true",
@@ -273,9 +335,36 @@ function cmdRecord(flags) {
       evaluator: String(flags.evaluator ?? "agent"),
     },
     artifacts: [String(artifact)],
+    artifact_sha256: [sha256File(artAbs)],
   };
   appendFileSync(join(dataDir, "events.jsonl"), JSON.stringify(ev) + "\n");
   process.stdout.write(`${ev.event_id}\n`);
+}
+
+function cmdRetract(positional, flags) {
+  const wsDir = ws(flags);
+  const eventId = positional[0];
+  if (!eventId) die("usage: retract <event_id> --reason <text>");
+  if (!flags.reason) die("--reason <text> is required");
+  const dataDir = join(wsDir, "data");
+  const events = readJsonl(join(dataDir, "events.jsonl"));
+  const target = events.find((e) => e.event_id === eventId);
+  if (!target) die(`event not found: ${eventId}`);
+  if (target.type === "retraction") die("cannot retract a retraction");
+  const { retracted } = splitEvents(events);
+  if (retracted.has(eventId)) die(`event already retracted: ${eventId}`);
+  if (!flags["occurred-at"]) die("--occurred-at <ISO8601> is required");
+
+  const ev = {
+    schema: "event-v2",
+    event_id: nextId(events, "event_id", "evt_"),
+    type: "retraction",
+    occurred_at: String(flags["occurred-at"]),
+    refers_to: eventId,
+    reason: String(flags.reason),
+  };
+  appendFileSync(join(dataDir, "events.jsonl"), JSON.stringify(ev) + "\n");
+  process.stdout.write(`${ev.event_id} (retracts ${eventId}; its observations are now excluded)\n`);
 }
 
 function cmdObserve(positional, flags) {
@@ -286,6 +375,10 @@ function cmdObserve(positional, flags) {
   const events = readJsonl(join(dataDir, "events.jsonl"));
   const ev = events.find((e) => e.event_id === eventId);
   if (!ev) die(`event not found: ${eventId}`);
+  if (ev.type === "retraction") die(`${eventId} is a retraction event; nothing to observe`);
+  const { retracted } = splitEvents(events);
+  if (retracted.has(eventId)) die(`event ${eventId} has been retracted; re-record before observing`);
+  verifyArtifacts(wsDir, ev); // hard fail if the artifact changed since record (INV-3)
 
   const goal = loadGoal(wsDir);
   const rubricVersion = goal.rubric_version;
@@ -373,18 +466,21 @@ function activeObservations(observations, rubricVersion) {
 function cmdAssess(flags) {
   const wsDir = ws(flags);
   const dataDir = join(wsDir, "data");
-  const events = readJsonl(join(dataDir, "events.jsonl"));
+  const allEvents = readJsonl(join(dataDir, "events.jsonl"));
+  const { active } = splitEvents(allEvents); // retracted events (and their observations) drop out (§4.4.3)
   const observations = activeObservations(
     readJsonl(join(dataDir, "observations.jsonl")),
     null
   );
   const goal = loadGoal(wsDir);
-  const eventById = new Map(events.map((e) => [e.event_id, e]));
+  // Map only active events: observations of retracted events find no event and are skipped.
+  const eventById = new Map(active.map((e) => [e.event_id, e]));
 
-  // Deterministic "now": max occurred_at across events, or --as-of override.
+  // Deterministic "now": max occurred_at across all events (retractions included
+  // — they are facts too and advance the data's clock), or --as-of override.
   let nowISO = flags["as-of"] ? String(flags["as-of"]) : null;
   if (!nowISO) {
-    nowISO = events.reduce((acc, e) => (e.occurred_at > acc ? e.occurred_at : acc), events[0]?.occurred_at ?? "1970-01-01T00:00:00Z");
+    nowISO = allEvents.reduce((acc, e) => (e.occurred_at > acc ? e.occurred_at : acc), allEvents[0]?.occurred_at ?? "1970-01-01T00:00:00Z");
   }
 
   // Group observations by (capability, dimension).
@@ -397,33 +493,41 @@ function cmdAssess(flags) {
 
   const capabilities = {};
   let latestEvent = "";
-  for (const e of events) if (e.event_id > latestEvent) latestEvent = e.event_id;
+  for (const e of allEvents) if (e.event_id > latestEvent) latestEvent = e.event_id;
 
   for (const [key, obsList] of groups) {
     const [capability, dimension] = key.split("|");
     let sumW = 0;
     let sumWR = 0;
-    const contexts = new Set();
+    let counted = 0;
+    // Diversity contexts (§5.3): unique_contexts = min(unique topics, unique
+    // sessions). Session key falls back to event_id when no session_id, so
+    // legacy single-task events behave exactly as before.
+    const topics = new Set();
+    const sessions = new Set();
     for (const o of obsList) {
       const ev = eventById.get(o.event_id);
-      if (!ev) continue;
+      if (!ev) continue; // retracted or unknown event → excluded
       const w = weight(ev, nowISO);
       sumW += w;
       sumWR += w * o.result;
-      contexts.add(ev.task?.topic ?? "");
+      counted++;
+      topics.add(ev.task?.topic ?? "");
+      sessions.add(ev.session_id ?? ev.event_id);
     }
+    if (counted === 0) continue; // all evidence retracted → no estimate
     const score = sumW > 0 ? sumWR / sumW : 0;
-    const confidence = saturation(sumW) * diversity(contexts.size);
+    const confidence = saturation(sumW) * diversity(Math.min(topics.size, sessions.size));
     if (!capabilities[capability]) capabilities[capability] = {};
     capabilities[capability][dimension] = {
       score: round(score),
       confidence: round(confidence),
-      observation_count: obsList.length,
+      observation_count: counted,
     };
   }
 
   const capability = {
-    estimator_version: "weighted-evidence-v0.1",
+    estimator_version: "weighted-evidence-v0.2",
     as_of: nowISO,
     source_event_until: latestEvent,
     rubric_version: goal.rubric_version,
@@ -488,8 +592,9 @@ function cmdExplain(positional, flags) {
     : { gaps: [] };
   const gapRow = gapDoc.gaps.find((g) => g.capability === capability && g.dimension === dimension);
 
-  const events = readJsonl(join(dataDir, "events.jsonl"));
-  const eventById = new Map(events.map((e) => [e.event_id, e]));
+  const allEvents = readJsonl(join(dataDir, "events.jsonl"));
+  const { active, retractions } = splitEvents(allEvents);
+  const eventById = new Map(active.map((e) => [e.event_id, e]));
   const observations = activeObservations(readJsonl(join(dataDir, "observations.jsonl")), null).filter(
     (o) => o.capability === capability && o.dimension === dimension
   );
@@ -500,7 +605,9 @@ function cmdExplain(positional, flags) {
       const ev = eventById.get(o.event_id);
       return { o, ev, w: ev ? weight(ev, nowISO) : 0 };
     })
+    .filter((r) => r.ev) // observations of retracted events are excluded from the chain
     .sort((a, b) => b.w - a.w);
+  for (const { ev } of rows) verifyArtifacts(wsDir, ev); // hard fail if any cited artifact was tampered with
 
   const L = [];
   L.push(`能力  ${capability}.${dimension}`);
@@ -522,15 +629,30 @@ function cmdExplain(positional, flags) {
     L.push(`      → ${o.artifact_ref}`);
   }
   L.push("");
-  // Confidence explanation
+  // Confidence explanation (§5.3: unique_contexts = min(topics, sessions))
   const sumW = rows.reduce((a, r) => a + r.w, 0);
-  const contexts = new Set(rows.map((r) => r.ev?.task?.topic));
+  const topics = new Set(rows.map((r) => r.ev?.task?.topic));
+  const sessions = new Set(rows.map((r) => r.ev?.session_id ?? r.ev?.event_id));
+  const uniqueContexts = Math.min(topics.size, sessions.size);
   L.push("置信度为何不是更高?");
   L.push(`  • 有效证据量 Σw = ${round(sumW, 3)}  →  saturation = ${round(saturation(sumW), 3)}`);
-  L.push(`  • 场景多样性 = ${contexts.size} 个不同 topic (${[...contexts].join(", ")})  →  diversity = ${round(diversity(contexts.size), 3)}`);
+  L.push(`  • 场景多样性 = min(${topics.size} topic, ${sessions.size} 场次) = ${uniqueContexts} (${[...topics].join(", ")})  →  diversity = ${round(diversity(uniqueContexts), 3)}`);
   L.push(`  • confidence = saturation × diversity = ${cur.confidence}`);
   if (gapRow && gapRow.mode === "diagnose") {
     L.push(`  ⚠ confidence < 0.4:建议先做诊断型任务补证据,而非直接训练。`);
+  }
+  // Surface retractions affecting this capability.dimension, if any.
+  const retractedHere = retractions.filter((r) =>
+    readJsonl(join(dataDir, "observations.jsonl")).some(
+      (o) => o.event_id === r.refers_to && o.capability === capability && o.dimension === dimension
+    )
+  );
+  if (retractedHere.length > 0) {
+    L.push("");
+    L.push("撤销记录(其证据已排除):");
+    for (const r of retractedHere) {
+      L.push(`  • ${r.occurred_at.slice(0, 10)}  ${r.refers_to} 被撤销:${r.reason ?? "(无理由)"}`);
+    }
   }
   process.stdout.write(L.join("\n") + "\n");
 }
@@ -544,6 +666,9 @@ switch (sub) {
   case "record":
     cmdRecord(flags);
     break;
+  case "retract":
+    cmdRetract(positional, flags);
+    break;
   case "observe":
     cmdObserve(positional, flags);
     break;
@@ -554,5 +679,5 @@ switch (sub) {
     cmdExplain(positional, flags);
     break;
   default:
-    die(`unknown subcommand: ${sub ?? "(none)"}\nusage: goal.mjs <record|observe|assess|explain> --workspace <dir> ...`);
+    die(`unknown subcommand: ${sub ?? "(none)"}\nusage: goal.mjs <record|retract|observe|assess|explain> --workspace <dir> ...`);
 }

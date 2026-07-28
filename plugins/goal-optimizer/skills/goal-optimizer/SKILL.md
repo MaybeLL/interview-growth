@@ -18,9 +18,11 @@ description: 目标优化系统。把一次面试/练习表现,按 rubric 提取
 
 ```
 node <scripts>/goal.mjs record   --workspace <ws> --type <t> --occurred-at <ISO> \
-                                  --topic <s> --difficulty <0-1> --novelty <unseen|variant|familiar|repeat> \
-                                  --duration <min> [--time-limit true] [--hints true] [--materials true] \
+                                  --topic <s> --difficulty <0-1> [--variant true] \
+                                  --duration <实际耗时min> [--session <场次id>] \
+                                  [--time-limit true] [--hints true] [--materials true] \
                                   --evaluator <agent|human> --artifact <相对 ws 的路径>
+node <scripts>/goal.mjs retract <event_id> --workspace <ws> --occurred-at <ISO> --reason <文字>
 node <scripts>/goal.mjs observe <event_id> --workspace <ws>            # 打印原文+rubric 给你
 node <scripts>/goal.mjs observe <event_id> --workspace <ws> --write    # 从 stdin 读你的 observation JSON,校验后追加
 node <scripts>/goal.mjs assess   --workspace <ws> [--as-of <ISO>]      # 纯确定性,重算 state/
@@ -30,10 +32,20 @@ node <scripts>/goal.mjs explain  <capability>.<dimension> --workspace <ws>
 ## 工作流
 
 ### 1. record —— 记录事实(不含任何评价)
-把一次表现登记为一个 event。artifact 必须已存在。事件只记"发生了什么、什么条件下",绝不含分数。
+把**一个任务**登记为一个 event(粒度规则:一场 5 道题的面试记 5 个 event,共享同一个 `--session`;
+单题练习不用填 session)。artifact 必须已存在;record 会对它计算 SHA-256 公证,事后改动会被读取端拒绝。
+
+- **不要传 novelty**——它由引擎从历史派生(同 topic 出现过→familiar/repeat,首次→unseen);
+  只有当任务是已知题型的变式时,显式传 `--variant true`。
+- `--topic` 命名必须与该 workspace 的既有 topic 一致(派生依赖精确匹配),记录前先看一眼 events.jsonl 里的 topic 用词。
+- `--difficulty` 是记录时声明(0–1),如实填;`--duration` 填实际耗时。
+
+### 1b. retract —— 记错了怎么办
+事实层永不改写。记错(难度打错/忘了 --hints/artifact 贴错)就撤销重录:
+`retract <event_id> --reason "..."`,然后重新 record 一条正确的。被撤销 event 的全部 observations 自动不再参与计算。
 
 ### 2. observe —— 你按 rubric 提取(这是本 skill 唯一需要你判断的一步)
-1. 运行 `observe <event_id>`,拿到该 event 的**原始 artifact 全文** + **当前 rubric**。
+1. 运行 `observe <event_id>`,拿到该 event 的**原始 artifact 全文** + **当前 rubric**(CLI 会先校验 artifact 哈希与撤销状态)。
 2. **你看不到、也不要索取任何历史分数或既有能力估计**(防锚定,继承自旧 evaluator 纪律)。
 3. 对 rubric 里该场景**实际能判定**的每个 `(capability, dimension)`:
    - 对照 anchor 判 `pass=1.0 / partial=0.5 / fail=0.0`(有充分理由可在 ±0.2 内微调);

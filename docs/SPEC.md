@@ -47,10 +47,10 @@ Observe(记录表现) → Evaluate(评估能力) → Optimize(找最优行动) �
 
 以下不变量必须始终成立,违反任何一条即为架构级 bug:
 
-- **INV-1(事实不可变)** `artifacts/` 与 `data/events.jsonl` 只允许追加,永不覆盖、永不删除、永不改写。
+- **INV-1(事实不可变)** `artifacts/` 与 `data/events.jsonl` 只允许追加,永不覆盖、永不删除、永不改写。纠错的唯一路径是追加 `retraction` 事件(§4.4.3),而非修改历史。
 - **INV-2(推断可再生)** `state/` 目录整体可再生:`rm -rf state/ && goal assess` 必须从 events + observations 完整重建所有能力状态,结果逐字节一致(确定性)。
-- **INV-3(证据链完整)** 每条 Observation 必须引用一个 event_id;每个 event 必须引用 artifact 路径。任何能力结论都能沿链回溯到原始表现文本。
-- **INV-4(推断带版本)** 每条 Observation 记录 rubric 版本 + 提取模型 + prompt 版本;每份 Projection 记录 estimator 版本 + 截止 event。能力数值变化必须能区分"用户变了"还是"评估标准变了"。
+- **INV-3(证据链完整)** 每条 Observation 必须引用一个 event_id;每个 event 必须引用 artifact 路径并记录其内容哈希(`artifact_sha256`)。任何能力结论都能沿链回溯到原始表现文本,且原文被篡改时可被发现(读取时校验哈希,不匹配即报错)。
+- **INV-4(推断与事实皆带版本)** 每条 event 记录 schema 版本;每条 Observation 记录 rubric 版本 + 提取模型 + prompt 版本;每份 Projection 记录 estimator 版本 + 截止 event。能力数值变化必须能区分"用户变了"还是"评估标准变了"。event schema **只加字段、只加版本,永不改变旧字段语义**;旧数据就地保留原版本,永不迁移。
 - **INV-5(职责分离)** LLM 负责理解、结构化、解释;确定性引擎负责权重、聚合、衰减、置信度计算。LLM 永远不直接产出能力分数。
 - **INV-6(无外部依赖)** 全部状态存在纯文本文件(JSONL / YAML / JSON / Markdown)中。无数据库、无账号、无云同步。Git 即同步机制。
 
@@ -159,13 +159,19 @@ capabilities:
 
 ### 4.4 events.jsonl — 表现事件(第一层:事实)
 
-每行一个 JSON 对象:
+事件层的准确定性是:**客观条件 + 明示的声明(claims)**。可测量的部分(时间、时长、conditions、artifact 哈希)是事实;无客观来源的部分(difficulty)以"记录时声明"的身份存在,SPEC 不假装它是事实。
+
+**粒度规则:event = 一个任务(task),不是一场会话。** 一场 60 分钟、5 道题的模拟面试记 5 个 event——因为 difficulty/novelty/duration 都是任务级属性,压平到场次会失真。同场的 event 用可选的 `session_id` 关联(单题练习可不填);同场各 event 的 `conditions` 由记录方保持一致。artifact 可整场一份,不同 event 的 observation 引用不同行段。
+
+每行一个 JSON 对象(schema `event-v2`):
 
 ```json
 {
+  "schema": "event-v2",
   "event_id": "evt_000042",
   "type": "mock_interview",
   "occurred_at": "2026-07-28T20:30:00+08:00",
+  "session_id": "ses_2026-07-28-mock",
   "task": {
     "topic": "design_a_payment_system",
     "difficulty": 0.6,
@@ -178,18 +184,59 @@ capabilities:
     "external_materials": false,
     "evaluator": "agent"
   },
-  "artifacts": ["artifacts/interviews/2026-07-28-payment.md"]
+  "artifacts": ["artifacts/interviews/2026-07-28-payment.md"],
+  "artifact_sha256": ["<sha256-of-file-content>"]
 }
 ```
 
 字段约束:
 
+- `schema`:事件结构版本,当前 `event-v2`。引擎按版本分支解读;**只加字段、只加版本,永不改旧字段语义**。无 `schema` 字段的历史数据按 v1 语义解读(novelty 视为自报声明、无哈希则跳过校验),就地保留,永不迁移。
 - `event_id`:单调递增,格式 `evt_` + 6 位零填充序号。
-- `type` 枚举(v1):`mock_interview` | `practice` | `explanation` | `quiz` | `reading` | `real_interview` | `project_work`。
-- `task.novelty` 枚举:`unseen` | `variant` | `familiar` | `repeat`。
-- `conditions` 记录独立性条件(是否限时/提示/查资料),供权重计算使用。
-- **事件只记事实,不含任何评价**。评价属于 Observation 层。
+- `type` 枚举(v1):`mock_interview` | `practice` | `explanation` | `quiz` | `reading` | `real_interview` | `project_work` | `retraction`(见 §4.4.3)。
+- `session_id`:可选。同一场次(一场面试/一次练习会话)的多个 event 共享同一值;置信度的场景多样性按 session 去重(§5.3),防止同场多题虚增多样性。
+- `task.difficulty`:**记录时声明**(0–1)。v1 无客观标定来源,如实以声明身份参与权重;客观标定(题库/出题方随题带难度)推迟 v2。
+- `task.novelty`:**引擎派生,record 不接受自报**(见 §4.4.2)。
+- `task.duration_minutes`:**实际耗时**(客观事实)。任务是否限时属于 `conditions.time_limit`。v1 权重不消费它;它是 `automaticity` 维度(限时低错误率)的未来燃料——便宜且事后不可补的数据,倾向于记。
+- `conditions` 记录独立性条件(是否限时/提示/查资料),供权重计算使用。`evaluator`(agent/human)v1 不参与计算,是 v2 evaluator_diversity 的预留。
+- `artifact_sha256`:record 时对每个 artifact 内容计算 SHA-256,与 `artifacts` 一一对应。`observe`/`explain` 读取 artifact 时重算比对,**不匹配直接报错**(证据链公证,INV-3);救济路径是撤销后重录。
+- **事件不含任何评价**。评价属于 Observation 层。
 - 行为日志(如"阅读 30 分钟")可以记录为 `reading` 事件,但其证据权重天然极低(见 §5.1),系统关心的是表现证据而非行为日志。
+
+#### 4.4.2 novelty 的派生规则
+
+"见没见过"是用户历史的函数,系统持有全部历史,自报既多余又可污染(自报 unseen 权重 ×1.0 vs repeat ×0.25)。因此 novelty 由 `record` 从既有 events 确定性推导:
+
+```
+同 topic 的既往 event 数(不含 retraction、不含被撤销者):
+  0 次        → unseen
+  1 次        → familiar
+  ≥2 次       → repeat
+记录方可显式声明 --variant(题型是已知类型的变式)覆盖为 variant。
+```
+
+推导只依据 `task.topic` 精确匹配——这要求同一 workspace 内 topic 命名一致(由驱动 record 的 agent 负责规整)。
+
+#### 4.4.3 retraction — 事实层的纠错路径
+
+录入错误必然发生(难度打错、忘记 `--hints`、artifact 贴错)。INV-1 禁止改写,纠错的唯一方式是**追加撤销事件**:
+
+```json
+{
+  "schema": "event-v2",
+  "event_id": "evt_000043",
+  "type": "retraction",
+  "occurred_at": "2026-07-29T10:00:00+08:00",
+  "refers_to": "evt_000042",
+  "reason": "难度记错:实际应为 0.5"
+}
+```
+
+语义:
+
+- 聚合与解释时,被撤销的 event 及其**全部 observations** 不参与计算;`explain` 可展示撤销记录。
+- 纠错流程 = `retract` + 重新 `record` 一条正确的。不支持字段级 patch,不支持撤销的撤销。
+- 撤销本身也是一条事实("我在某时声明 evt_42 记错了"),append-only 完好。
 
 ### 4.5 observations.jsonl — 结构化观测(第二层:推断的中间产物)
 
@@ -224,7 +271,7 @@ capabilities:
 
 ```json
 {
-  "estimator_version": "weighted-evidence-v0.1",
+  "estimator_version": "weighted-evidence-v0.2",
   "generated_at": "2026-07-28T21:05:00+08:00",
   "source_event_until": "evt_000042",
   "rubric_version": "system-design-v0.1",
@@ -282,7 +329,7 @@ capabilities:
 
 ---
 
-## 5. 确定性估计引擎(estimator: weighted-evidence-v0.1)
+## 5. 确定性估计引擎(estimator: weighted-evidence-v0.2)
 
 ### 5.1 单条证据权重
 
@@ -296,13 +343,13 @@ w = difficulty × independence × novelty × reliability × recency
 |---|---|---|
 | `difficulty` | event.task.difficulty | 直接取值,下限 0.2 |
 | `independence` | event.conditions | 无提示且不查资料=1.0;有提示=0.5;跟随材料=0.2 |
-| `novelty` | event.task.novelty | unseen=1.0,variant=0.8,familiar=0.5,repeat=0.25 |
+| `novelty` | event.task.novelty(v2 起由 record 派生,§4.4.2) | unseen=1.0,variant=0.8,familiar=0.5,repeat=0.25 |
 | `reliability` | event.type | mock_interview/real_interview=0.9,practice/explanation=0.7,quiz=0.5,reading=0.1 |
 | `recency` | occurred_at | 指数衰减 `exp(-Δdays / 90)`,下限 0.3 |
 
 ### 5.2 分数聚合
 
-对每个 `(capability, dimension)`,取全部有效 Observation:
+对每个 `(capability, dimension)`,取全部有效 Observation(被撤销 event 的 observations 不参与,§4.4.3):
 
 ```
 score = Σ(wᵢ × rᵢ) / Σ(wᵢ)
@@ -315,8 +362,12 @@ confidence = saturation(Σwᵢ) × diversity
 
 saturation(W) = 1 − exp(−W / 1.5)      # 有效证据量:权重和越大越确定,边际递减
 diversity     = 0.5 + 0.5 × min(unique_contexts, 4) / 4
-                                        # 场景多样性:unique task.topic 数,1 个场景封顶 0.625
+                                        # 场景多样性,1 个场景封顶 0.625
+unique_contexts = min(unique_topics, unique_sessions)
+                                        # topic 去重 × 场次去重,取小
 ```
+
+`unique_topics` = 不同 `task.topic` 数;`unique_sessions` = 不同场次数(场次键 = `session_id`,缺省时退化为 `event_id`)。取 min 的含义:同一场面试答 5 道不同题,不构成 5 个独立验证场景(session 压住);同一 topic 练两次,也不构成 2 个场景(topic 压住)。无 `session_id` 的旧数据行为与原公式完全一致(§4.4 粒度规则的配套)。
 
 **校准锚点(demo 标定):** 半饱和权重 `k=1.5` 使"~5 条扎实的独立证据(每条 w≈0.5,Σwᵢ≈2.5)、跨 ≥3 个场景 → confidence ≈ 0.70";`diagnose→train` 边界(0.4)约在第 3 条扎实证据跨过。`k` 越小,置信度随证据量上升越快。
 
@@ -336,24 +387,25 @@ critical 项排序时置顶。
 
 ---
 
-## 6. 命令契约(五个命令 + 一个解释命令)
+## 6. 命令契约(六个命令 + 一个解释命令)
 
-闭环:`record → observe → assess → explain → next → record ...`
+闭环:`record → observe → assess → explain → next → record ...`;纠错:`retract → record`。
 
 所有命令是确定性 CLI(除 observe 的提取步骤由 Agent 执行);输出为 JSON(机器)+ 简明文本(人)。
 
 ### 6.1 `goal record`
 
-记录一次表现。
+记录一次表现(一个任务,§4.4 粒度规则)。
 
-- 输入:type、task 元数据、conditions、artifact 文件路径(已有文件或从 stdin 写入)。
-- 行为:校验 artifact 存在 → 追加一行到 `events.jsonl` → 返回 event_id。
-- 禁止:修改已有 event(INV-1)。
+- 输入:type、task 元数据(**不含 novelty**;可选 `--variant` 声明)、conditions、可选 session、artifact 文件路径(已有文件或从 stdin 写入)。
+- 行为:校验 artifact 存在 → 计算 `artifact_sha256` → 按 §4.4.2 派生 novelty → 追加一行 `event-v2` 到 `events.jsonl` → 返回 event_id。
+- 禁止:修改已有 event(INV-1);接受 novelty 自报。
 
 ### 6.2 `goal observe <event_id>`
 
 从表现中提取结构化观测。
 
+- 前置:校验 artifact 哈希与 event 记录一致(v2;不匹配即报错,INV-3),event 未被撤销。
 - 分工:CLI 输出该 event 的 artifact 内容 + 当前 rubric,**Agent(LLM)** 按 rubric anchor 生成 Observation 草稿,CLI 校验 schema(capability/dimension 在 rubric 中存在、result ∈ [0,1]、artifact_ref 格式合法)后追加写入 `observations.jsonl`。
 - LLM 不接触任何历史分数,只看本次 artifact + rubric(防锚定)。
 
@@ -361,24 +413,32 @@ critical 项排序时置顶。
 
 重算能力投影。
 
-- 行为:读全部 events + observations → 按 §5 公式计算 → 覆写 `state/capability.json`、`state/gap.json`。
+- 行为:读全部 events + observations → 排除被撤销 event 及其 observations(§4.4.3)→ 按 §5 公式计算 → 覆写 `state/capability.json`、`state/gap.json`。
 - 纯确定性,无 LLM 参与(INV-5)。幂等:重复运行结果一致(INV-2)。
 
 ### 6.4 `goal explain <capability>[.<dimension>]`
 
 解释能力结论的证据链。系统可观测性的核心命令。
 
-- 输出:当前估计与置信度;按权重排序的正向/负向证据(每条含日期、event 类型、evidence 文本、权重、artifact_ref);置信度为什么不是更高(场景数、证据分布)。
+- 前置:展示证据前校验各 artifact 哈希(v2;不匹配即报错)。
+- 输出:当前估计与置信度;按权重排序的正向/负向证据(每条含日期、event 类型、evidence 文本、权重、artifact_ref);置信度为什么不是更高(场景数、证据分布)。被撤销的证据不出现在证据链中(可附注撤销记录)。
 - 全部内容由确定性引擎从 observations 生成,LLM 只做措辞润色(可选)。
 
-### 6.5 `goal next`
+### 6.5 `goal retract <event_id> --reason <text>`
+
+撤销一条记错的 event(§4.4.3)。
+
+- 行为:校验目标 event 存在且非 retraction → 追加一条 `type: "retraction"` 事件 → 返回新 event_id。
+- 后续:重新 `record` 正确版本;`assess` 自动排除被撤销者。
+
+### 6.6 `goal next`
 
 选择下一项最有价值的行动。
 
 - 分工:CLI 输出按 priority 排序的 gap 列表(含 mode),**Agent(LLM)** 据此设计 1–3 个具体任务(diagnose 型或 train 型),写入 `state/plan.json`,并向用户解释理由。
 - 只排序,不给 ΔCapability 数值。
 
-### 6.6 `goal init <goal-name>`
+### 6.7 `goal init <goal-name>`
 
 创建 workspace 骨架 + Agent 辅助起草 goal.yaml(requirements 需用户确认后生效)。
 
