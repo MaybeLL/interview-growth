@@ -25,6 +25,10 @@ record → observe → assess → explain → next
 - **next** — surfaces the highest-priority actionable gaps (deterministic); the agent
   designs up to 3 concrete diagnose/train tasks from them. Ranking, not fabricated deltas.
 
+Setup is a separate, one-time step: the **`goal-init`** skill scaffolds a new goal
+workspace and co-drafts its requirements and rubric with you (you confirm the numbers).
+The **`goal-optimizer`** skill covers the recurring loop above once the workspace exists.
+
 ### Invariants
 
 - **Facts are immutable.** `artifacts/` and `data/events.jsonl` are append-only.
@@ -59,8 +63,8 @@ A complete example workspace lives at
 transcripts, extracted observations, and the derived capability/gap state.
 
 ```sh
-cd plugins/goal-optimizer/skills/goal-optimizer/scripts
-WS=../../../examples/backend-system-design
+cd plugins/goal-optimizer/scripts
+WS=../examples/backend-system-design
 node goal.mjs explain idempotency.transfer --workspace "$WS"
 # recompute from facts and confirm it's byte-identical:
 rm -rf "$WS/state" && node goal.mjs assess --workspace "$WS"

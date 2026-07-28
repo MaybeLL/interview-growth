@@ -7,17 +7,18 @@ description: 目标优化系统。把一次面试/练习表现,按 rubric 提取
 
 一个作用于人的优化循环:`record → observe → assess → explain → next`。
 
+**前置:** 本 skill 假设目标 workspace 已建好。若用户要**新建/初始化一个目标**(搭 workspace、起草 requirements 与 rubric),用 **goal-init** skill,不要在这里做。
+
 **INV-5 分工红线:** 你(Agent)只做语义理解——按 rubric 判 pass/partial/fail、摘录证据。
 所有数值(权重、聚合、置信度、差距)由 `goal.mjs` 确定性计算。**你永远不直接产出能力分数。**
 
 ## CLI 协议
 
-把 `<scripts>` 解析为**本 SKILL.md 同级的 `scripts/` 目录**(即 `<此文件所在目录>/scripts`),脚本为
+把 `<scripts>` 解析为**本 SKILL.md 上两级(插件根)的 `scripts/` 目录**(即 `<此文件所在目录>/../../scripts`),脚本为
 `<scripts>/goal.mjs`,用 `node` 运行。前置依赖只有 Node(无 npm 安装、零依赖)。所有命令都要
-`--workspace <目标数据目录>`(用户的某个目标 workspace;可参考 `../../examples/backend-system-design`)。
+`--workspace <目标数据目录>`(用户的某个目标 workspace;可参考 `../../../examples/backend-system-design`)。
 
 ```
-node <scripts>/goal.mjs init     --workspace <ws> [--title <t>] [--goal-id <id>] [--rubric <id>] [--created-at <date>]
 node <scripts>/goal.mjs record   --workspace <ws> --type <t> --occurred-at <ISO> \
                                   --topic <s> --difficulty <0-1> [--variant true] \
                                   --duration <实际耗时min> [--session <场次id>] \
@@ -33,12 +34,6 @@ node <scripts>/goal.mjs next     --workspace <ws> --write             # 从 stdi
 ```
 
 ## 工作流
-
-### 0. init —— 为一个新目标搭 workspace(仅首次)
-`init --workspace <新目录>` 建出骨架(`goal.yaml` + `rubric/<id>.yaml` 模板 + `artifacts/`)。模板是中立占位。
-随后**你陪用户**把 `goal.yaml` 的 requirements(要练哪些 capability×dimension、目标值、权重、是否 critical)
-和 `rubric` 的行为锚点(每个 capability×dimension 的 pass/partial/fail 可判定描述)填成真实内容——
-**这些是用户的决策,你起草、用户确认,不要替用户拍板难度或目标**。定稿后 git commit。
 
 ### 1. record —— 记录事实(不含任何评价)
 把**一个任务**登记为一个 event(粒度规则:一场 5 道题的面试记 5 个 event,共享同一个 `--session`;
