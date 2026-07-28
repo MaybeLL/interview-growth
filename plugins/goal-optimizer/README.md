@@ -40,12 +40,12 @@ no cloud. Git is the sync mechanism.
 
 This plugin ships in the `maybell-plugins` marketplace and loads in three hosts:
 
-- **Claude Code:** `claude plugin marketplace add MaybeLL/goal-optimizer` then
+- **Claude Code:** `claude plugin marketplace add MaybeLL/interview-growth` then
   `claude plugin install goal-optimizer@maybell-plugins --scope user`. Skills are
   auto-discovered.
-- **Codex:** `codex plugin marketplace add MaybeLL/goal-optimizer --ref release-v1` then
+- **Codex:** `codex plugin marketplace add MaybeLL/interview-growth --ref release-v1` then
   `codex plugin add goal-optimizer@maybell-plugins`.
-- **Pi:** `pi install git:github.com/MaybeLL/goal-optimizer` (add `-l` for project-local).
+- **Pi:** `pi install git:github.com/MaybeLL/interview-growth` (add `-l` for project-local).
   Invoke the skill via `/skill:goal-optimizer`.
 
 For a local checkout, register the repo root as a local marketplace.

@@ -1,6 +1,6 @@
 # Goal Optimizer
 
-[![CI](https://github.com/MaybeLL/goal-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/MaybeLL/goal-optimizer/actions/workflows/ci.yml)
+[![CI](https://github.com/MaybeLL/interview-growth/actions/workflows/ci.yml/badge.svg)](https://github.com/MaybeLL/interview-growth/actions/workflows/ci.yml)
 
 一个以“目标”为中心、以“能力”为状态、以“证据”为依据、以“优化”为核心循环的
 **个人能力操作系统(Goal Optimization System)**。
@@ -39,19 +39,19 @@ record → observe → assess → explain
 Claude Code:
 
 ```bash
-claude plugin marketplace add MaybeLL/goal-optimizer && claude plugin install goal-optimizer@maybell-plugins --scope user
+claude plugin marketplace add MaybeLL/interview-growth && claude plugin install goal-optimizer@maybell-plugins --scope user
 ```
 
 Codex:
 
 ```bash
-codex plugin marketplace add MaybeLL/goal-optimizer --ref release-v1 && codex plugin add goal-optimizer@maybell-plugins
+codex plugin marketplace add MaybeLL/interview-growth --ref release-v1 && codex plugin add goal-optimizer@maybell-plugins
 ```
 
 Pi:
 
 ```bash
-pi install git:github.com/MaybeLL/goal-optimizer
+pi install git:github.com/MaybeLL/interview-growth
 ```
 
 Claude Code 与 Codex 会自动发现 skill;Pi 通过 `pi.skills` 加载 skill。安装后新开会话即可开始。
