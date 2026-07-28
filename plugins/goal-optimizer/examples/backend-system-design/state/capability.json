@@ -1,0 +1,20 @@
+{
+  "estimator_version": "weighted-evidence-v0.1",
+  "as_of": "2026-07-26T14:00:00+08:00",
+  "source_event_until": "evt_000003",
+  "rubric_version": "idempotency-v0.1",
+  "capabilities": {
+    "idempotency": {
+      "recall": {
+        "score": 0.9199,
+        "confidence": 0.2716,
+        "observation_count": 2
+      },
+      "transfer": {
+        "score": 0.3203,
+        "confidence": 0.2725,
+        "observation_count": 2
+      }
+    }
+  }
+}

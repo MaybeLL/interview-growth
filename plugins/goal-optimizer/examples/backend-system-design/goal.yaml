@@ -1,0 +1,20 @@
+goal_id: backend-system-design
+title: 后端工程师系统设计面试
+created_at: 2026-07-01
+target_date: 2026-10-01
+
+# Requirement Model:目标对每个 (capability, dimension) 的要求与权重。
+# 这是优化问题里的目标状态 x*。人工编辑、git 版本化。
+requirements:
+  - capability: idempotency
+    dimension: recall
+    required: 0.7
+    weight: 0.6
+    critical: false
+  - capability: idempotency
+    dimension: transfer
+    required: 0.75
+    weight: 0.9
+    critical: true
+
+rubric_version: idempotency-v0.1

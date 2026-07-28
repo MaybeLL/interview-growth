@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "goal-optimizer",
+  "version": "0.1.0",
+  "description": "A local-first, event-sourced goal optimization system: turn messy performances into traceable, recomputable capability estimates and see where the next unit of effort pays off most.",
+  "author": {
+    "name": "MaybeLL"
+  },
+  "license": "MIT",
+  "keywords": [
+    "goal-optimization",
+    "capability",
+    "interview",
+    "career-growth"
+  ]
+}

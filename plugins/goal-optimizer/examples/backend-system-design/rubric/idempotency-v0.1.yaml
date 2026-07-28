@@ -1,0 +1,16 @@
+rubric_id: idempotency-v0.1
+# 评估规约:Observation 提取的唯一依据。
+# 锚点必须具体到"可判定的行为",不给 LLM 自由发挥空间。
+# result 映射:pass=1.0  partial=0.5  fail=0.0(提取时可在 ±0.2 内微调并说明理由)。
+capabilities:
+  - id: idempotency
+    name: 幂等设计
+    anchors:
+      - dimension: recall
+        pass: 无提示即能说明幂等键的作用、以及"同一意图重试用同键、不同意图用不同键"的核心规则
+        partial: 能说出幂等大意但漏掉关键机制(如没提幂等键、或把去重等同于加锁)
+        fail: 无法解释幂等,或解释存在原理性错误
+      - dimension: transfer
+        pass: 在陌生业务场景中主动识别重复提交风险,并给出正确方案(区分 request_id 与业务意图、处理并发窗口与结果回放)
+        partial: 识别了风险但方案有漏洞(如只做唯一约束不处理并发、或用不同 request_id 重复提交同一意图未被拦截)
+        fail: 未识别陌生场景中的重复提交风险

@@ -1,22 +1,22 @@
 {
-  "name": "interview-growth-pi-package",
-  "version": "0.8.0",
+  "name": "goal-optimizer-pi-package",
+  "version": "0.1.0",
   "private": true,
-  "description": "Pi package adapter for the Interview Growth agent-native interview practice system.",
+  "description": "Pi package adapter for the Goal Optimizer — a local-first, event-sourced goal optimization system.",
   "license": "MIT",
   "keywords": [
     "pi-package",
-    "interview",
-    "software-engineering",
+    "goal-optimization",
+    "capability",
     "career-growth"
   ],
   "type": "module",
   "pi": {
     "extensions": [
-      "./extensions/interview-growth-pi.ts"
+      "./extensions/goal-optimizer-pi.ts"
     ],
     "skills": [
-      "./plugins/interview-growth/skills"
+      "./plugins/goal-optimizer/skills"
     ]
   },
   "peerDependencies": {

@@ -6,13 +6,13 @@
   },
   "plugins": [
     {
-      "name": "interview-growth",
-      "source": "./plugins/interview-growth",
-      "description": "A private, evidence-based system for growing toward a target software role.",
+      "name": "goal-optimizer",
+      "source": "./plugins/goal-optimizer",
+      "description": "A local-first, event-sourced goal optimization system: evidence → capability → gap.",
       "category": "Productivity",
       "tags": [
-        "interview",
-        "software-engineering",
+        "goal-optimization",
+        "capability",
         "career-growth"
       ]
     }

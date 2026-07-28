@@ -1,0 +1,30 @@
+{
+  "as_of": "2026-07-26T14:00:00+08:00",
+  "against": "goal.yaml",
+  "gaps": [
+    {
+      "capability": "idempotency",
+      "dimension": "transfer",
+      "current": 0.3203,
+      "required": 0.75,
+      "gap": 0.4297,
+      "weight": 0.9,
+      "critical": true,
+      "confidence": 0.2725,
+      "priority": 0.2461,
+      "mode": "diagnose"
+    },
+    {
+      "capability": "idempotency",
+      "dimension": "recall",
+      "current": 0.9199,
+      "required": 0.7,
+      "gap": 0,
+      "weight": 0.6,
+      "critical": false,
+      "confidence": 0.2716,
+      "priority": 0,
+      "mode": "diagnose"
+    }
+  ]
+}

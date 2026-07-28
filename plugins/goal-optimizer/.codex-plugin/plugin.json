@@ -1,0 +1,26 @@
+{
+  "name": "goal-optimizer",
+  "version": "0.1.0",
+  "description": "A local-first, event-sourced goal optimization system: turn messy performances into traceable, recomputable capability estimates and see where the next unit of effort pays off most.",
+  "author": {
+    "name": "MaybeLL"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Goal Optimizer",
+    "shortDescription": "Evidence → capability → gap: know where you are, and what to practice next.",
+    "longDescription": "A local-first, event-sourced goal optimization system. Record a performance, extract structured observations against a rubric, aggregate them deterministically into per-dimension capability estimates with confidence, and compare against your goal to see the highest-priority gap. Every number traces back to a line in the raw artifact and is byte-for-byte recomputable. v1 scope: backend system-design interviews.",
+    "developerName": "Goal Optimizer Contributors",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "defaultPrompt": [
+      "Record my latest mock interview as evidence.",
+      "Assess my capabilities and show how far I am from my goal.",
+      "Explain why my idempotency.transfer score is what it is."
+    ]
+  }
+}
