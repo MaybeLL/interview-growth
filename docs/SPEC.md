@@ -453,9 +453,14 @@ critical 项排序时置顶。
 - 分工:CLI 输出按 priority 排序的 gap 列表(含 mode),**Agent(LLM)** 据此设计 1–3 个具体任务(diagnose 型或 train 型),写入 `state/plan.json`,并向用户解释理由。
 - 只排序,不给 ΔCapability 数值。
 
-### 6.7 `goal init <goal-name>`
+### 6.7 `goal init --workspace <dir>`
 
-创建 workspace 骨架 + Agent 辅助起草 goal.yaml(requirements 需用户确认后生效)。
+创建 workspace 骨架(确定性),供 Agent 随后陪用户起草内容。
+
+- 输入:`--workspace <dir>`(目标目录,可尚不存在);可选 `--title` / `--goal-id`(默认取目录名)/ `--rubric`(默认 `<goal-id>-v0.1`)/ `--created-at`。
+- 行为:建 `rubric/` `artifacts/` `data/` 目录 → 写 `goal.yaml` 模板 + `rubric/<rubric-id>.yaml` 模板(均为语法有效、含中立占位 `example_capability` 的可运行骨架)。`state/` 由 assess 自动创建。
+- 安全:若目标目录已存在 `goal.yaml`,**拒绝覆盖**。
+- 分工(INV-5):init 只搭骨架;**Agent 陪用户起草真实 requirements 与 rubric 锚点,用户确认后生效**——难度/目标/权重是用户的决策,不由工具代填。
 
 ---
 

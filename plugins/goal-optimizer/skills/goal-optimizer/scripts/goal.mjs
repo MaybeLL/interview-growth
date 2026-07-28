@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // goal-optimizer CLI — deterministic core (INV-5: no LLM here, numbers only).
-// Subcommands: record | retract | observe | assess | explain
+// Subcommands: init | record | retract | observe | assess | explain
 //
 // Design notes:
 // - Facts (events.jsonl, observations.jsonl, artifacts/) are append-only (INV-1).
@@ -16,7 +16,7 @@
 //   wall-clock; it is max(occurred_at) across events (override with --as-of).
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, readdirSync } from "node:fs";
-import { join, resolve, dirname } from "node:path";
+import { join, resolve, dirname, basename } from "node:path";
 import { createHash } from "node:crypto";
 
 // ---------------------------------------------------------------------------
@@ -297,6 +297,77 @@ function diversity(uniqueContexts) {
 // ---------------------------------------------------------------------------
 // commands
 // ---------------------------------------------------------------------------
+function goalTemplate(goalId, title, createdAt, rubricId) {
+  return `# goal.yaml — 目标定义 + Requirement Model(优化问题里的目标状态 x*)
+# requirements 由 Agent 协助起草、你确认后生效;每条 (capability, dimension) 一行。
+goal_id: ${goalId}
+title: ${title}
+created_at: ${createdAt}
+target_date:            # 可选,YYYY-MM-DD
+
+rubric_version: ${rubricId}   # 指向 rubric/${rubricId}.yaml
+
+requirements:
+  # 占位示例,请替换成你的真实目标(capability 必须在 rubric 中定义):
+  - capability: example_capability
+    dimension: transfer        # exposure|recognition|recall|application|transfer|automaticity
+    required: 0.75             # 目标水平 0-1
+    weight: 0.9                # 重要度 0-1
+    critical: true             # 门槛项:不达标则整体不达标
+`;
+}
+
+function rubricTemplate(rubricId) {
+  return `# rubric/${rubricId}.yaml — 评估规约(Observation 提取的唯一依据)
+# 锚点要具体到"可判定的行为",不给 LLM 自由发挥。result: pass=1.0 partial=0.5 fail=0.0(±0.2 可微调)
+rubric_id: ${rubricId}
+capabilities:
+  # 占位示例,请替换成你的真实能力与行为锚点:
+  - id: example_capability
+    name: 示例能力
+    anchors:
+      - dimension: recall
+        pass: 无提示即能准确解释该能力的核心概念与关键机制
+        partial: 提示后能解释,或解释遗漏关键点
+        fail: 无法解释或存在原理性错误
+      - dimension: transfer
+        pass: 在陌生场景中主动运用并给出正确方案
+        partial: 能运用但方案有明显漏洞
+        fail: 未能识别可运用之处
+`;
+}
+
+function cmdInit(positional, flags) {
+  // --workspace <dir> is the target to scaffold; unlike other commands it may
+  // not exist yet, so init resolves the path itself rather than via ws().
+  const dir = flags.workspace || flags.w || positional[0];
+  if (!dir) die("usage: init --workspace <dir> [--title <t>] [--goal-id <id>] [--rubric <rubric-id>] [--created-at <YYYY-MM-DD>]");
+  const abs = resolve(String(dir));
+  const goalId = flags["goal-id"] ? String(flags["goal-id"]) : basename(abs);
+  const rubricId = flags.rubric ? String(flags.rubric) : `${goalId}-v0.1`;
+  const title = flags.title ? String(flags.title) : goalId;
+  const createdAt = flags["created-at"] ? String(flags["created-at"]) : new Date().toISOString().slice(0, 10);
+
+  const goalPath = join(abs, "goal.yaml");
+  if (existsSync(goalPath)) die(`refusing to overwrite existing workspace: ${goalPath} already exists`);
+
+  mkdirSync(join(abs, "rubric"), { recursive: true });
+  mkdirSync(join(abs, "artifacts"), { recursive: true });
+  mkdirSync(join(abs, "data"), { recursive: true });
+  writeFileSync(join(abs, "artifacts", ".gitkeep"), "");
+  writeFileSync(join(abs, "rubric", `${rubricId}.yaml`), rubricTemplate(rubricId));
+  writeFileSync(goalPath, goalTemplate(goalId, title, createdAt, rubricId));
+
+  process.stdout.write(
+    `initialized workspace at ${abs}\n` +
+      `  goal.yaml                 编辑 title/target_date,填写真实 requirements\n` +
+      `  rubric/${rubricId}.yaml   定义 capabilities × dimension 行为锚点\n` +
+      `  artifacts/                把原始表现文件放这里\n` +
+      `  (data/ state/ 由 record/assess 自动创建)\n` +
+      `next: 与 Agent 一起起草 goal.yaml 的 requirements 和 rubric 锚点(你确认后生效),再 record 第一次表现。\n`
+  );
+}
+
 function cmdRecord(flags) {
   const wsDir = ws(flags);
   const dataDir = join(wsDir, "data");
@@ -663,6 +734,9 @@ function cmdExplain(positional, flags) {
 const { positional, flags } = parseArgs(process.argv.slice(2));
 const sub = positional.shift();
 switch (sub) {
+  case "init":
+    cmdInit(positional, flags);
+    break;
   case "record":
     cmdRecord(flags);
     break;
@@ -679,5 +753,5 @@ switch (sub) {
     cmdExplain(positional, flags);
     break;
   default:
-    die(`unknown subcommand: ${sub ?? "(none)"}\nusage: goal.mjs <record|retract|observe|assess|explain> --workspace <dir> ...`);
+    die(`unknown subcommand: ${sub ?? "(none)"}\nusage: goal.mjs <init|record|retract|observe|assess|explain> --workspace <dir> ...`);
 }

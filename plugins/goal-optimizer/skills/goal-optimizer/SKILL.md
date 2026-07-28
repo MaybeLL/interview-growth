@@ -17,6 +17,7 @@ description: 目标优化系统。把一次面试/练习表现,按 rubric 提取
 `--workspace <目标数据目录>`(用户的某个目标 workspace;可参考 `../../examples/backend-system-design`)。
 
 ```
+node <scripts>/goal.mjs init     --workspace <ws> [--title <t>] [--goal-id <id>] [--rubric <id>] [--created-at <date>]
 node <scripts>/goal.mjs record   --workspace <ws> --type <t> --occurred-at <ISO> \
                                   --topic <s> --difficulty <0-1> [--variant true] \
                                   --duration <实际耗时min> [--session <场次id>] \
@@ -30,6 +31,12 @@ node <scripts>/goal.mjs explain  <capability>.<dimension> --workspace <ws>
 ```
 
 ## 工作流
+
+### 0. init —— 为一个新目标搭 workspace(仅首次)
+`init --workspace <新目录>` 建出骨架(`goal.yaml` + `rubric/<id>.yaml` 模板 + `artifacts/`)。模板是中立占位。
+随后**你陪用户**把 `goal.yaml` 的 requirements(要练哪些 capability×dimension、目标值、权重、是否 critical)
+和 `rubric` 的行为锚点(每个 capability×dimension 的 pass/partial/fail 可判定描述)填成真实内容——
+**这些是用户的决策,你起草、用户确认,不要替用户拍板难度或目标**。定稿后 git commit。
 
 ### 1. record —— 记录事实(不含任何评价)
 把**一个任务**登记为一个 event(粒度规则:一场 5 道题的面试记 5 个 event,共享同一个 `--session`;
