@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// Plugin metadata validator (Node port of the old Python check, minus pyproject).
+// Plugin metadata validator: name/version consistency across manifests, Pi
+// resource paths, skill frontmatter, and marketplace entries.
 // Run from the repo root: `node scripts/validate-plugin-metadata.mjs`
 // Exits non-zero on the first failed assertion.
 import { readFileSync, existsSync, readdirSync } from "node:fs";

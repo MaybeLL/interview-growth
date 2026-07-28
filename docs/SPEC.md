@@ -2,7 +2,6 @@
 
 > 状态:Draft(待评审)
 > 版本:spec-v0.1
-> 取代:旧设计白皮书(新系统在 `release-v1` 分支;旧设计保留在 `main` 分支与 git 历史中)
 
 ---
 
@@ -387,7 +386,7 @@ critical 项排序时置顶。
 
 ## 7. Agent 接入方式
 
-- 系统 = 结构化 CLI(确定性核心)+ Skill(场景 prompt)。不做 MCP Server,不做 UI(继承旧 ADR-0012/0015 原则)。
+- 系统 = 结构化 CLI(确定性核心)+ Skill(场景 prompt)。不做 MCP Server,不做 UI。
 - v1 Skills:`interviewer`(出题并主持模拟面试,产出 artifact)、`observer`(§6.2 的提取角色)、`coach`(§6.5 的任务设计角色)。interviewer 与 observer 上下文隔离:面试时不加载历史能力数据,防止出题被当前分数污染。
 - 未来 UI(如有)只是本地文件的 Viewer,不持有状态。
 
@@ -423,17 +422,3 @@ critical 项排序时置顶。
 3. **推荐针对性**:`goal next` 基于历史表现的推荐,是否比用户随意选择更有针对性?
 
 验证优先级高于:精确评分模型、通用本体、RL、0–100 统一分。
-
----
-
-## 10. 与旧设计(保留在 `main` 分支)的关系
-
-| 旧设计资产 | 处置 |
-|---|---|
-| 证据优先/append-only/派生分数 三不变量 | **原样继承**,升格为 INV-1/2/3 |
-| Agent 推理 + CLI 确定性(ADR-0012) | **继承**为 INV-5 |
-| 无 MCP、Skill+CLI+Hook(ADR-0015) | **继承**(v1 甚至不用 Hook) |
-| SQLite 35 张表 | 废弃:Projection 被当事实存储是复杂度失控根源 |
-| 面试官/评价者/教练三角色隔离 | 简化继承为 interviewer/observer/coach |
-| 独立证据 vs 辅助练习 | 泛化为连续的 `independence` 权重因子 |
-| 盲重评/争议/训练处方/复测计划 | 推迟 v2 |
