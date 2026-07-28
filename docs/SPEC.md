@@ -471,7 +471,11 @@ critical 项排序时置顶。
 ## 7. Agent 接入方式
 
 - 系统 = 结构化 CLI(确定性核心)+ Skill(场景 prompt)。不做 MCP Server,不做 UI。
-- v1 Skills:`interviewer`(出题并主持模拟面试,产出 artifact)、`observer`(§6.2 的提取角色)、`coach`(§6.5 的任务设计角色)。interviewer 与 observer 上下文隔离:面试时不加载历史能力数据,防止出题被当前分数污染。
+- v1 Skills(两个):
+  - `goal-init`:一次性建标——搭 workspace 骨架(§6.7),再陪用户把 `goal.yaml` 的 requirements 与 rubric 行为锚点起草成真实内容(用户确认后定稿)。
+  - `goal-optimizer`:`record → observe → assess → explain → next` 循环。其中 `observe` 是 §6.2 的提取角色、`next` 是 §6.5 的任务设计角色;`assess`/`explain` 是确定性 CLI,无需 LLM。
+- artifact 的产出(真实/模拟面试)在 skill 之外,由 `record` 事后登记——本系统不出题、不主持面试。
+- 反锚定:`observe` 阶段不加载任何历史分数或既有能力估计,防止提取被当前结论污染(即 INV-5「Agent 判语义、CLI 算数值」在提取步的落地)。
 - 未来 UI(如有)只是本地文件的 Viewer,不持有状态。
 
 ---
@@ -483,7 +487,7 @@ critical 项排序时置顶。
 - 单场景:后端系统设计面试
 - 六维能力向量 + 双值(score/confidence)
 - JSONL 事件溯源 + 确定性 estimator + 证据链 explain
-- 五命令闭环 + 三个 Skill
+- 五命令闭环 + 两个 Skill(`goal-init` 建标、`goal-optimizer` 跑循环)
 
 ### 不做(明确推迟)
 
