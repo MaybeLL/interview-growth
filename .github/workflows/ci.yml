@@ -4,118 +4,64 @@ on:
   push:
     branches:
       - main
+      - release-v1
   pull_request:
     branches:
       - main
+      - release-v1
   workflow_dispatch:
 
 permissions:
   contents: read
 
-defaults:
-  run:
-    working-directory: plugins/interview-growth
-
 jobs:
-  quality:
-    name: Python quality
+  smoke:
+    name: Node smoke + INV-2 recompute
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-
+    timeout-minutes: 5
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+      - name: Set up Node
+        uses: actions/setup-node@v4
         with:
-          enable-cache: true
-          cache-dependency-glob: plugins/interview-growth/uv.lock
-          python-version: "3.12"
-          working-directory: plugins/interview-growth
+          node-version: "22"
 
-      - name: Install locked dependencies
-        run: uv sync --locked --dev --no-editable
+      - name: Syntax check the CLI
+        run: node --check plugins/goal-optimizer/skills/goal-optimizer/scripts/goal.mjs
 
-      - name: Lint
-        run: uv run --locked --no-editable ruff check .
+      - name: Recompute state and assert byte-identical (INV-2)
+        run: |
+          set -euo pipefail
+          SCRIPTS="$PWD/plugins/goal-optimizer/skills/goal-optimizer/scripts"
+          SRC="$PWD/plugins/goal-optimizer/examples/backend-system-design"
+          WS="$RUNNER_TEMP/ws"
+          cp -R "$SRC" "$WS"
+          node "$SCRIPTS/goal.mjs" assess --workspace "$WS"
+          diff "$SRC/state/capability.json" "$WS/state/capability.json"
+          diff "$SRC/state/gap.json" "$WS/state/gap.json"
+          echo "INV-2 holds: recomputed state is byte-identical to committed state."
 
-      - name: Type check
-        run: uv run --locked --no-editable pyright
-
-      - name: Test
-        run: uv run --locked --no-editable pytest --cov=interview_growth --cov-report=term-missing
-
-      - name: Build package
-        run: uv build --out-dir "$RUNNER_TEMP/interview-growth-dist"
+      - name: Explain runs
+        run: |
+          set -euo pipefail
+          SCRIPTS="$PWD/plugins/goal-optimizer/skills/goal-optimizer/scripts"
+          WS="$PWD/plugins/goal-optimizer/examples/backend-system-design"
+          node "$SCRIPTS/goal.mjs" explain idempotency.transfer --workspace "$WS"
 
   plugin-metadata:
     name: Plugin metadata
     runs-on: ubuntu-latest
     timeout-minutes: 5
-
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
 
-      - name: Validate manifests, marketplace entries, hooks, and Skills
-        run: |
-          python - <<'PY'
-          import json
-          import re
-          import tomllib
-          from pathlib import Path
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
 
-          repository = Path("../..").resolve()
-          plugin = Path(".").resolve()
-
-          codex_manifest = json.loads((plugin / ".codex-plugin/plugin.json").read_text())
-          claude_manifest = json.loads((plugin / ".claude-plugin/plugin.json").read_text())
-          pi_manifest = json.loads((repository / "package.json").read_text())
-          pyproject = tomllib.loads((plugin / "pyproject.toml").read_text())
-          assert codex_manifest["name"] == "interview-growth"
-          assert claude_manifest["name"] == codex_manifest["name"]
-          assert claude_manifest["version"] == codex_manifest["version"]
-          assert pyproject["project"]["name"] == codex_manifest["name"]
-          assert pyproject["project"]["version"] == codex_manifest["version"]
-          assert pi_manifest["version"] == codex_manifest["version"]
-          assert (plugin / "hooks/hooks.json").is_file()
-          json.loads((plugin / "hooks/hooks.json").read_text())
-          assert "pi-package" in pi_manifest["keywords"]
-          pi_resources = pi_manifest["pi"]
-          assert pi_resources["skills"] == ["./plugins/interview-growth/skills"]
-          assert pi_resources["extensions"] == ["./extensions/interview-growth-pi.ts"]
-          for resource in (*pi_resources["skills"], *pi_resources["extensions"]):
-              assert (repository / resource).exists(), resource
-
-          skill_paths = sorted((plugin / "skills").glob("*/SKILL.md"))
-          assert skill_paths, "No Skills found"
-          skill_names = []
-          for skill_path in skill_paths:
-              content = skill_path.read_text()
-              assert content.startswith("---\n"), f"Missing frontmatter: {skill_path}"
-              frontmatter, separator, _ = content[4:].partition("\n---")
-              assert separator, f"Unterminated frontmatter: {skill_path}"
-              name_match = re.search(r"^name:\s*(\S+)\s*$", frontmatter, re.MULTILINE)
-              description_match = re.search(
-                  r"^description:\s*.+$", frontmatter, re.MULTILINE
-              )
-              assert name_match and description_match, f"Invalid frontmatter: {skill_path}"
-              skill_names.append(name_match.group(1))
-              assert skill_path.parent.name == name_match.group(1), skill_path
-          assert len(skill_names) == len(set(skill_names)), "Duplicate Skill names"
-
-          for marketplace_path in (
-              repository / ".agents/plugins/marketplace.json",
-              repository / ".claude-plugin/marketplace.json",
-          ):
-              marketplace = json.loads(marketplace_path.read_text())
-              assert marketplace["name"] == "maybell-plugins", marketplace_path
-              assert any(
-                  item["name"] == "interview-growth" for item in marketplace["plugins"]
-              ), marketplace_path
-
-          print(
-              f"Validated {len(skill_paths)} Skills, both marketplace entries, and Pi resources."
-          )
-          PY
+      - name: Validate manifests, marketplace entries, and Skills
+        run: node scripts/validate-plugin-metadata.mjs
