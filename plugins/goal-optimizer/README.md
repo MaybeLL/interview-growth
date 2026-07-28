@@ -7,8 +7,8 @@ pays off most*.
 The core loop:
 
 ```
-record → observe → assess → explain
-记录表现   提取观测   聚合能力   解释证据链
+record → observe → assess → explain → next
+记录表现   提取观测   聚合能力   解释证据链   定下一步
 ```
 
 - **record** — log a performance (a mock interview, a practice answer) as an immutable
@@ -22,6 +22,8 @@ record → observe → assess → explain
 - **explain** — shows exactly why a number is what it is: every supporting piece of
   evidence, its weight broken down factor-by-factor, and the line in the raw artifact it
   came from.
+- **next** — surfaces the highest-priority actionable gaps (deterministic); the agent
+  designs up to 3 concrete diagnose/train tasks from them. Ranking, not fabricated deltas.
 
 ### Invariants
 

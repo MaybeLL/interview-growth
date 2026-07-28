@@ -48,7 +48,7 @@ Observe(记录表现) → Evaluate(评估能力) → Optimize(找最优行动) �
 以下不变量必须始终成立,违反任何一条即为架构级 bug:
 
 - **INV-1(事实不可变)** `artifacts/` 与 `data/events.jsonl` 只允许追加,永不覆盖、永不删除、永不改写。纠错的唯一路径是追加 `retraction` 事件(§4.4.3),而非修改历史。
-- **INV-2(推断可再生)** `state/` 目录整体可再生:`rm -rf state/ && goal assess` 必须从 events + observations 完整重建所有能力状态,结果逐字节一致(确定性)。
+- **INV-2(投影可再生)** `state/` 中的**确定性投影**(`capability.json`、`gap.json`)整体可再生:`rm -rf state/ && goal assess` 必须从 events + observations 完整重建,结果逐字节一致(确定性)。`state/plan.json` 是 Agent 决策产物(§1.2 Gap→Plan),由 `goal next` 重建而非 assess,**不在逐字节保证范围内**。
 - **INV-3(证据链完整)** 每条 Observation 必须引用一个 event_id;每个 event 必须引用 artifact 路径并记录其内容哈希(`artifact_sha256`)。任何能力结论都能沿链回溯到原始表现文本,且原文被篡改时可被发现(读取时校验哈希,不匹配即报错)。
 - **INV-4(推断与事实皆带版本)** 每条 event 记录 schema 版本;每条 Observation 记录 rubric 版本 + 提取模型 + prompt 版本;每份 Projection 记录 estimator 版本 + 截止 event。能力数值变化必须能区分"用户变了"还是"评估标准变了"。event schema **只加字段、只加版本,永不改变旧字段语义**;旧数据就地保留原版本,永不迁移。
 - **INV-5(职责分离)** LLM 负责理解、结构化、解释;确定性引擎负责权重、聚合、衰减、置信度计算。LLM 永远不直接产出能力分数。
@@ -71,10 +71,10 @@ Observe(记录表现) → Evaluate(评估能力) → Optimize(找最优行动) �
   data/
     events.jsonl              # Event Store,append-only(INV-1)
     observations.jsonl        # 结构化观测,append-only
-  state/                      # 全部派生,可随时重算(INV-2),gitignore 可选
-    capability.json
-    gap.json
-    plan.json
+  state/                      # 派生,可随时重建;gitignore 可选
+    capability.json           #   ↳ assess 确定性重建,逐字节一致(INV-2)
+    gap.json                  #   ↳ 同上
+    plan.json                 #   ↳ next 依据 gap + Agent 设计重建(决策产物,非逐字节)
   reports/                    # goal explain / progress 的人类可读输出
 ```
 
@@ -322,11 +322,12 @@ capabilities:
 }
 ```
 
-### 4.8 state/plan.json — 行动计划(派生)
+### 4.8 state/plan.json — 行动计划(决策产物)
 
 ```json
 {
   "generated_at": "2026-07-28T21:06:00+08:00",
+  "against": "gap.json",
   "actions": [
     {
       "rank": 1,
@@ -340,7 +341,9 @@ capabilities:
 }
 ```
 
-**v1 明确不输出 "预计提升 +0.8" 这类 ΔCapability 数值**——没有历史数据支撑,假精确破坏可信度。只做排序 + 文字理由。
+- 由 `goal next` 写入(Agent 设计、CLI 校验),**不由 assess 生成**;属于 §1.2 的"决策"层,不在 INV-2 逐字节保证内。
+- `targets` 的每个 `(capability, dimension)` 必须是 goal.yaml 的 requirement;`mode ∈ {diagnose, train}`;至多 3 条 action。
+- **v1 明确不输出 "预计提升 +0.8" 这类 ΔCapability 数值**——没有历史数据支撑,假精确破坏可信度。只做排序 + 文字理由。
 
 ---
 
@@ -402,7 +405,7 @@ critical 项排序时置顶。
 
 ---
 
-## 6. 命令契约(六个命令 + 一个解释命令)
+## 6. 命令契约
 
 闭环:`record → observe → assess → explain → next → record ...`;纠错:`retract → record`。
 
@@ -448,10 +451,11 @@ critical 项排序时置顶。
 
 ### 6.6 `goal next`
 
-选择下一项最有价值的行动。
+选择下一项最有价值的行动。两段式(同 observe):
 
-- 分工:CLI 输出按 priority 排序的 gap 列表(含 mode),**Agent(LLM)** 据此设计 1–3 个具体任务(diagnose 型或 train 型),写入 `state/plan.json`,并向用户解释理由。
-- 只排序,不给 ΔCapability 数值。
+- **`next`(打印)**:纯确定性,从 `gap.json` 取出按 priority 排序(critical 优先)、`gap > 0` 的**可行动缺口短名单**(默认前 3,`--top` 可调),输出 JSON。这是"该练什么"的候选。
+- **`next --write`(写入)**:**Agent(LLM)** 依短名单设计 1–3 个具体任务从 stdin 传入;CLI 校验(每个 `targets` 的 `(capability,dimension)` 必须是 goal.yaml 的 requirement、`mode ∈ {diagnose,train}`、`task`/`rationale` 非空、至多 3 条),按序赋 `rank` 后写入 `state/plan.json`。
+- 只排序,不给 ΔCapability 数值;plan.json 是决策产物,不在 INV-2 内(§4.8)。
 
 ### 6.7 `goal init --workspace <dir>`
 

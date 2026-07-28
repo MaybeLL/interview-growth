@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // goal-optimizer CLI — deterministic core (INV-5: no LLM here, numbers only).
-// Subcommands: init | record | retract | observe | assess | explain
+// Subcommands: init | record | retract | observe | assess | explain | next
 //
 // Design notes:
 // - Facts (events.jsonl, observations.jsonl, artifacts/) are append-only (INV-1).
@@ -728,6 +728,77 @@ function cmdExplain(positional, flags) {
   process.stdout.write(L.join("\n") + "\n");
 }
 
+function cmdNext(flags) {
+  const wsDir = ws(flags);
+  const stateDir = join(wsDir, "state");
+  const gapPath = join(stateDir, "gap.json");
+  if (!existsSync(gapPath)) die("state/gap.json missing — run assess first");
+  const gapDoc = JSON.parse(readFileSync(gapPath, "utf8"));
+  const goal = loadGoal(wsDir);
+  const validTargets = new Set((goal.requirements || []).map((r) => `${r.capability}.${r.dimension}`));
+
+  if (!flags.write) {
+    // PRINT MODE: the deterministic half of `next` — the priority-sorted
+    // shortlist of actionable gaps (gap > 0), already ranked by assess
+    // (critical first, then priority desc). The agent designs tasks from this.
+    const top = Number(flags.top ?? 3);
+    const actionable = gapDoc.gaps.filter((g) => g.gap > 0).slice(0, top);
+    process.stdout.write(
+      JSON.stringify({ top, actionable_gaps: actionable }, null, 2) + "\n"
+    );
+    return;
+  }
+
+  // WRITE MODE: the agent's designed plan (array of actions) from stdin.
+  // plan.json is a DECISION artifact (§1.2 Gap→Plan), not a projection — it is
+  // written here, never by assess, and is NOT covered by INV-2's byte-identical
+  // recompute (which is over capability.json + gap.json only).
+  const stdin = readFileSync(0, "utf8");
+  let payload;
+  try {
+    payload = JSON.parse(stdin);
+  } catch (e) {
+    die(`invalid JSON on stdin: ${e.message}`);
+  }
+  const actions = Array.isArray(payload) ? payload : [payload];
+  if (actions.length < 1) die("plan must contain at least one action");
+  if (actions.length > 3) die(`next designs at most 3 focused actions (got ${actions.length})`);
+
+  const out = [];
+  actions.forEach((a, i) => {
+    if (!a.task || typeof a.task !== "string") die(`action ${i + 1}: task (string) is required`);
+    if (!a.rationale || typeof a.rationale !== "string") die(`action ${i + 1}: rationale (string) is required`);
+    if (a.mode !== "diagnose" && a.mode !== "train")
+      die(`action ${i + 1}: mode must be "diagnose" or "train", got ${JSON.stringify(a.mode)}`);
+    if (!Array.isArray(a.targets) || a.targets.length === 0)
+      die(`action ${i + 1}: targets [{capability,dimension}] is required`);
+    for (const t of a.targets) {
+      const key = `${t.capability}.${t.dimension}`;
+      if (!validTargets.has(key)) die(`action ${i + 1}: target ${key} is not a requirement in goal.yaml`);
+    }
+    if (a.estimated_minutes !== undefined && (typeof a.estimated_minutes !== "number" || a.estimated_minutes < 0))
+      die(`action ${i + 1}: estimated_minutes must be a non-negative number`);
+    // No ΔCapability / expected-gain field is accepted (§6.6: rank, don't fabricate deltas).
+    out.push({
+      rank: i + 1,
+      task: a.task,
+      targets: a.targets.map((t) => ({ capability: t.capability, dimension: t.dimension })),
+      mode: a.mode,
+      rationale: a.rationale,
+      ...(a.estimated_minutes !== undefined ? { estimated_minutes: a.estimated_minutes } : {}),
+    });
+  });
+
+  const planDoc = {
+    generated_at: flags["generated-at"] ? String(flags["generated-at"]) : new Date().toISOString(),
+    against: "gap.json",
+    actions: out,
+  };
+  mkdirSync(stateDir, { recursive: true });
+  writeFileSync(join(stateDir, "plan.json"), JSON.stringify(planDoc, null, 2) + "\n");
+  process.stdout.write(`wrote ${out.length} action(s) to state/plan.json\n`);
+}
+
 // ---------------------------------------------------------------------------
 // dispatch
 // ---------------------------------------------------------------------------
@@ -752,6 +823,9 @@ switch (sub) {
   case "explain":
     cmdExplain(positional, flags);
     break;
+  case "next":
+    cmdNext(flags);
+    break;
   default:
-    die(`unknown subcommand: ${sub ?? "(none)"}\nusage: goal.mjs <init|record|retract|observe|assess|explain> --workspace <dir> ...`);
+    die(`unknown subcommand: ${sub ?? "(none)"}\nusage: goal.mjs <init|record|retract|observe|assess|explain|next> --workspace <dir> ...`);
 }

@@ -5,7 +5,7 @@ description: 目标优化系统。把一次面试/练习表现,按 rubric 提取
 
 # Goal Optimizer(证据 → 能力 → 差距 三层管道)
 
-一个作用于人的优化循环:`record → observe → assess → explain`。
+一个作用于人的优化循环:`record → observe → assess → explain → next`。
 
 **INV-5 分工红线:** 你(Agent)只做语义理解——按 rubric 判 pass/partial/fail、摘录证据。
 所有数值(权重、聚合、置信度、差距)由 `goal.mjs` 确定性计算。**你永远不直接产出能力分数。**
@@ -28,6 +28,8 @@ node <scripts>/goal.mjs observe <event_id> --workspace <ws>            # 打印�
 node <scripts>/goal.mjs observe <event_id> --workspace <ws> --write    # 从 stdin 读你的 observation JSON,校验后追加
 node <scripts>/goal.mjs assess   --workspace <ws> [--as-of <ISO>]      # 纯确定性,重算 state/
 node <scripts>/goal.mjs explain  <capability>.<dimension> --workspace <ws>
+node <scripts>/goal.mjs next     --workspace <ws> [--top <n>]         # 打印排序好的可行动 gap 短名单
+node <scripts>/goal.mjs next     --workspace <ws> --write             # 从 stdin 读你设计的任务(≤3),校验后写 plan.json
 ```
 
 ## 工作流
@@ -87,5 +89,11 @@ observation JSON 形状:
 `explain <cap>.<dim>` 输出:当前 score/confidence、离目标差距与 mode、按权重排序的每条证据
 (日期/类型/权重逐因子拆解/原话/行号)、以及置信度为什么不更高。全部由确定性引擎从事实生成。
 
+### 5. next —— 设计下一步(这是你需要判断的另一步)
+1. 运行 `next`,拿到确定性排序好的**可行动 gap 短名单**(critical 优先、priority 降序、gap>0)。每条带 `mode`:
+   `diagnose`(置信度<0.4,证据不足,先设计**诊断型**任务补证据)/ `train`(证据够,设计**训练型**任务补分数)。
+2. 依短名单设计**至多 3 个**具体任务,每个含:`task`(做什么)、`targets`(冲哪些 capability×dimension,必须是 goal.yaml 里的 requirement)、`mode`、`rationale`(为什么是它、为什么这个 mode)、可选 `estimated_minutes`。
+3. 作为 JSON 数组从 stdin 传给 `next --write`,CLI 校验后写 `state/plan.json`。**不要编造"预计提升 +X"这类数值**——只排序 + 文字理由。
+
 ## 不做(v1 已明确推迟)
-跨维度软推断、evaluator/time_span 等额外置信度因子、ΔCapability 数值预估、next 任务设计。
+跨维度软推断、evaluator/time_span 等额外置信度因子、ΔCapability 数值预估。
