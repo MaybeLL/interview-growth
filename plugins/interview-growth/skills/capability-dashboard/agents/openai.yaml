@@ -1,4 +1,0 @@
-interface:
-  display_name: "Capability Dashboard"
-  short_description: "Explain readiness, evidence coverage, and next gaps"
-  default_prompt: "Use $capability-dashboard to show my current interview readiness and next actions."

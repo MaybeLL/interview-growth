@@ -1,6 +1,0 @@
-interface:
-  display_name: "Interview Evaluator"
-  short_description: "Evaluate frozen interview attempts against rubrics"
-  default_prompt: "Use $evaluator to evaluate a recorded interview attempt."
-policy:
-  allow_implicit_invocation: false

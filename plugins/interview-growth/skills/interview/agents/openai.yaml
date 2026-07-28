@@ -1,4 +1,0 @@
-interface:
-  display_name: "Mock Interview"
-  short_description: "Run adaptive software interview sessions safely"
-  default_prompt: "Use $interview to start a mock interview for my current goal."

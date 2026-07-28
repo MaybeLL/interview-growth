@@ -1,4 +1,0 @@
-interface:
-  display_name: "Interview Coach"
-  short_description: "Coach assisted practice without inflating evidence"
-  default_prompt: "Use $coach to help me improve this interview answer."
