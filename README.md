@@ -57,6 +57,30 @@ pi install git:github.com/MaybeLL/interview-growth
 
 Claude Code 与 Codex 会自动发现 skill;Pi 通过 `pi.skills` 加载 skill。安装后新开会话即可开始。
 
+## 更新到最新版 / 看不到新 skill 怎么办
+
+`marketplace add owner/repo` 只拉 GitHub **默认分支**(本仓库默认分支为 `release-v1`),
+且 Claude Code 会把仓库缓存在本地、**不会自动重新拉取**——已知 issue 中 `marketplace update`
+常常报"已是最新"却不真拉新提交。所以插件更新后若看不到新增/改动的 skill,用
+**彻底重装 + 整会话重启**(最可靠):
+
+```bash
+claude plugin uninstall goal-optimizer@maybell-plugins
+claude plugin marketplace remove maybell-plugins
+claude plugin marketplace add MaybeLL/interview-growth
+claude plugin install goal-optimizer@maybell-plugins
+```
+
+然后**完全退出并重开 Claude Code**——新 skill 只有整会话重启后才注册,`/reload-plugins` 不够。
+重启后应看到四个 skill:`goal-init` / `mock-drill` / `goal-log` / `goal-review`。
+
+仍不出现时按此排查:
+
+1. 确认 GitHub 默认分支确实是 `release-v1`(否则拉到的旧分支上没有这些 skill)。
+2. 清理卸载未删的缓存残留(路径以本机为准,先 `ls ~/.claude/plugins/` 看结构):
+   `rm -rf ~/.claude/plugins/*maybell* ~/.claude/plugins/cache/*maybell* 2>/dev/null`。
+3. `claude plugin list` 或 `/plugin` 面板确认装的是 `release-v1` 的内容。
+
 ## 试用 worked example
 
 仓库自带一个完整示例 workspace:[`plugins/goal-optimizer/examples/backend-system-design`](plugins/goal-optimizer/examples/backend-system-design)——三份面试逐字稿、提取出的观测、以及派生的能力/差距状态。
