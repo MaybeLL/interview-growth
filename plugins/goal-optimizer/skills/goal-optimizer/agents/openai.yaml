@@ -1,4 +1,0 @@
-interface:
-  display_name: "Goal Optimizer"
-  short_description: "Evidence → capability → gap: know where you are, and what to practice next"
-  default_prompt: "Use $goal-optimizer to assess my capabilities from recorded evidence and show the highest-priority gap toward my goal."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Goal Review"
+  short_description: "Review: see where you are, why, how far from the goal, and what to practice next"
+  default_prompt: "Use $goal-review to show my current capabilities, the evidence behind them, and the highest-priority gap with a next-step plan."

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // goal-optimizer CLI — deterministic core (INV-5: no LLM here, numbers only).
-// Subcommands: init | record | retract | observe | assess | explain | next
+// Subcommands: init | list | record | retract | observe | assess | explain | next
 //
 // Design notes:
 // - Facts (events.jsonl, observations.jsonl, artifacts/) are append-only (INV-1).
@@ -366,6 +366,109 @@ function cmdInit(positional, flags) {
       `  (data/ state/ 由 record/assess 自动创建)\n` +
       `next: 与 Agent 一起起草 goal.yaml 的 requirements 和 rubric 锚点(你确认后生效),再 record 第一次表现。\n`
   );
+}
+
+function cmdList(positional, flags) {
+  // Cross-goal management view (SPEC §3): enumerate every workspace under a
+  // parent directory and summarize its gaps. Read-only and deterministic; it
+  // writes nothing and touches no state/ (outside INV-2's projection scope).
+  // A workspace is any directory containing goal.yaml. --root may itself be a
+  // single workspace (has goal.yaml) or the parent of several.
+  const root = flags.root || flags.workspace || flags.w || positional[0];
+  if (!root) die("usage: list --root <dir> [--json]   (dir = a goal workspace or the parent of several)");
+  const rootAbs = resolve(String(root));
+  if (!existsSync(rootAbs)) die(`directory not found: ${rootAbs}`);
+
+  const wsDirs = [];
+  if (existsSync(join(rootAbs, "goal.yaml"))) {
+    wsDirs.push(rootAbs);
+  } else {
+    for (const ent of readdirSync(rootAbs, { withFileTypes: true })) {
+      if (!ent.isDirectory()) continue;
+      const child = join(rootAbs, ent.name);
+      if (existsSync(join(child, "goal.yaml"))) wsDirs.push(child);
+    }
+  }
+  if (wsDirs.length === 0) die(`no goals found under ${rootAbs} (looked for goal.yaml)`);
+
+  const goals = wsDirs.map((dir) => summarizeGoal(dir));
+  // Deterministic ordering that surfaces urgency: unmet-critical first, then
+  // highest top-gap priority, unassessed last, tiebreak by goal_id.
+  goals.sort((a, b) => {
+    const ac = a.critical_unmet > 0 ? 1 : 0;
+    const bc = b.critical_unmet > 0 ? 1 : 0;
+    if (ac !== bc) return bc - ac;
+    const ap = a.top_gap ? a.top_gap.priority : -1;
+    const bp = b.top_gap ? b.top_gap.priority : -1;
+    if (ap !== bp) return bp - ap;
+    return String(a.goal_id).localeCompare(String(b.goal_id));
+  });
+
+  if (flags.json) {
+    process.stdout.write(JSON.stringify({ root: rootAbs, goals }, null, 2) + "\n");
+    return;
+  }
+
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const L = [];
+  L.push(`goals under ${rootAbs} (${goals.length} found):`);
+  for (const g of goals) {
+    L.push("");
+    L.push(`  ${g.goal_id}   ${g.title}`);
+    const meta = [];
+    if (g.target_date) {
+      const dleft = Math.round(daysBetween(todayISO, g.target_date));
+      meta.push(`target ${g.target_date}${Number.isFinite(dleft) ? ` (${dleft}d left)` : ""}`);
+    }
+    if (!g.assessed) {
+      L.push(`    (unassessed — run: goal.mjs assess --workspace ${g.workspace})`);
+      if (meta.length) L.push(`    ${meta.join("   ")}`);
+      continue;
+    }
+    meta.push(`assessed as_of ${g.as_of}`);
+    L.push(`    ${meta.join("   ")}`);
+    L.push(`    requirements ${g.requirements} | open ${g.open_gaps} | critical unmet ${g.critical_unmet}`);
+    if (g.top_gap) {
+      const t = g.top_gap;
+      L.push(`    top gap  ${t.capability}.${t.dimension}  gap ${t.gap}  priority ${t.priority}  [${t.mode}]`);
+    } else {
+      L.push(`    ✓ all requirements met`);
+    }
+  }
+  process.stdout.write(L.join("\n") + "\n");
+}
+
+// Read-only summary of one workspace: goal metadata + gap overview from the
+// last assess. Missing state/gap.json means it was never assessed.
+function summarizeGoal(wsDir) {
+  const goal = loadGoal(wsDir);
+  const gapPath = join(wsDir, "state", "gap.json");
+  const base = {
+    goal_id: goal.goal_id ?? basename(wsDir),
+    title: goal.title ?? goal.goal_id ?? basename(wsDir),
+    workspace: wsDir,
+    target_date: goal.target_date ?? null,
+    requirements: (goal.requirements || []).length,
+  };
+  if (!existsSync(gapPath)) {
+    return { ...base, assessed: false, as_of: null, open_gaps: 0, critical_unmet: 0, top_gap: null };
+  }
+  const gapDoc = JSON.parse(readFileSync(gapPath, "utf8"));
+  const gaps = gapDoc.gaps || [];
+  const open = gaps.filter((g) => g.gap > 0);
+  const criticalUnmet = open.filter((g) => g.critical).length;
+  // gaps are already sorted (critical first, then priority desc) by assess.
+  const t = open[0];
+  return {
+    ...base,
+    assessed: true,
+    as_of: gapDoc.as_of ?? null,
+    open_gaps: open.length,
+    critical_unmet: criticalUnmet,
+    top_gap: t
+      ? { capability: t.capability, dimension: t.dimension, gap: t.gap, priority: t.priority, mode: t.mode }
+      : null,
+  };
 }
 
 function cmdRecord(flags) {
@@ -808,6 +911,9 @@ switch (sub) {
   case "init":
     cmdInit(positional, flags);
     break;
+  case "list":
+    cmdList(positional, flags);
+    break;
   case "record":
     cmdRecord(flags);
     break;
@@ -827,5 +933,5 @@ switch (sub) {
     cmdNext(flags);
     break;
   default:
-    die(`unknown subcommand: ${sub ?? "(none)"}\nusage: goal.mjs <init|record|retract|observe|assess|explain|next> --workspace <dir> ...`);
+    die(`unknown subcommand: ${sub ?? "(none)"}\nusage: goal.mjs <init|list|record|retract|observe|assess|explain|next> --workspace <dir> ...`);
 }

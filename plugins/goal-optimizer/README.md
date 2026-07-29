@@ -25,9 +25,20 @@ record → observe → assess → explain → next
 - **next** — surfaces the highest-priority actionable gaps (deterministic); the agent
   designs up to 3 concrete diagnose/train tasks from them. Ranking, not fabricated deltas.
 
-Setup is a separate, one-time step: the **`goal-init`** skill scaffolds a new goal
-workspace and co-drafts its requirements and rubric with you (you confirm the numbers).
-The **`goal-optimizer`** skill covers the recurring loop above once the workspace exists.
+Four skills, one per moment of use:
+
+- **`goal-init`** (one-time) scaffolds a new goal workspace and co-drafts its requirements
+  and rubric with you (you confirm the numbers).
+- **`mock-drill`** (optional) runs a mock interview / self-test, saves a clean, un-scored
+  transcript into `artifacts/`, then **hands off to `goal-log` (mandatory)** — every drill
+  becomes a recorded fact. It never reads the rubric or gaps while questioning
+  (anti teaching-to-test) and never scores itself.
+- **`goal-log`** (after each performance) is the capture pipeline — `record → observe →
+  assess` — the single intake for any artifact (a drill's transcript or a real interview
+  you paste in). `observe` scores blind (no prior estimates loaded).
+- **`goal-review`** (when you want to look) reviews and plans — `explain` (evidence chain)
+  + `next` (a plan for the highest-priority gap), plus `list` for a cross-goal overview.
+  Read-only over facts; nothing is ingested here.
 
 ### Invariants
 
@@ -47,12 +58,12 @@ no cloud. Git is the sync mechanism.
 This plugin ships in the `maybell-plugins` marketplace and loads in three hosts:
 
 - **Claude Code:** `claude plugin marketplace add MaybeLL/interview-growth` then
-  `claude plugin install goal-optimizer@maybell-plugins --scope user`. Skills are
+  `claude plugin install goal-optimizer@maybell-plugins`. Skills are
   auto-discovered.
 - **Codex:** `codex plugin marketplace add MaybeLL/interview-growth --ref release-v1` then
   `codex plugin add goal-optimizer@maybell-plugins`.
 - **Pi:** `pi install git:github.com/MaybeLL/interview-growth` (add `-l` for project-local).
-  Invoke the skill via `/skill:goal-optimizer`.
+  Invoke a skill via e.g. `/skill:goal-log` or `/skill:goal-review`.
 
 For a local checkout, register the repo root as a local marketplace.
 

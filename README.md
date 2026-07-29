@@ -40,7 +40,7 @@ record → observe → assess → explain → next
 Claude Code:
 
 ```bash
-claude plugin marketplace add MaybeLL/interview-growth && claude plugin install goal-optimizer@maybell-plugins --scope user
+claude plugin marketplace add MaybeLL/interview-growth && claude plugin install goal-optimizer@maybell-plugins
 ```
 
 Codex:
@@ -62,8 +62,8 @@ Claude Code 与 Codex 会自动发现 skill;Pi 通过 `pi.skills` 加载 skill�
 仓库自带一个完整示例 workspace:[`plugins/goal-optimizer/examples/backend-system-design`](plugins/goal-optimizer/examples/backend-system-design)——三份面试逐字稿、提取出的观测、以及派生的能力/差距状态。
 
 ```bash
-cd plugins/goal-optimizer/skills/goal-optimizer/scripts
-WS=../../../examples/backend-system-design
+cd plugins/goal-optimizer/scripts
+WS=../examples/backend-system-design
 node goal.mjs explain idempotency.transfer --workspace "$WS"
 # 从事实重算,验证逐字节一致(INV-2):
 rm -rf "$WS/state" && node goal.mjs assess --workspace "$WS"
@@ -74,14 +74,14 @@ rm -rf "$WS/state" && node goal.mjs assess --workspace "$WS"
 数据由用户自持(就在你指定的 workspace 目录里),卸载插件不会删除任何目标数据。
 
 - Codex:`codex plugin remove goal-optimizer@maybell-plugins`
-- Claude Code:`claude plugin uninstall goal-optimizer@maybell-plugins --scope user`
+- Claude Code:`claude plugin uninstall goal-optimizer@maybell-plugins`
 
 如果不再使用本仓库任何插件,可继续 `... plugin marketplace remove maybell-plugins`。
 
 ## 本地验证
 
 ```bash
-node --check plugins/goal-optimizer/skills/goal-optimizer/scripts/goal.mjs
+node --check plugins/goal-optimizer/scripts/goal.mjs
 node scripts/validate-plugin-metadata.mjs
 ```
 

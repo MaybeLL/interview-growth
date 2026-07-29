@@ -1,0 +1,4 @@
+interface:
+  display_name: "Mock Drill"
+  short_description: "Run a mock interview / self-test and save a clean transcript for goal-optimizer to score"
+  default_prompt: "Use $mock-drill to run a mock interview on a topic and save the transcript to my goal workspace, then hand off to goal-optimizer."

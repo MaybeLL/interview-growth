@@ -92,7 +92,7 @@ Observe(记录表现) → Evaluate(评估能力) → Optimize(找最优行动) �
     .goal-optimizer/backend-system-design/   # --workspace .goal-optimizer/backend-system-design
   ```
 
-多个 goal 共享一个父目录是可以的(便于未来 `goal list` 枚举),但每个 goal 仍是独立、可单独 commit 的单元。
+多个 goal 共享一个父目录是可以的(便于 `goal list` 枚举,§6.8),但每个 goal 仍是独立、可单独 commit 的单元。
 
 ---
 
@@ -407,7 +407,7 @@ critical 项排序时置顶。
 
 ## 6. 命令契约
 
-闭环:`record → observe → assess → explain → next → record ...`;纠错:`retract → record`。
+闭环:`record → observe → assess → explain → next → record ...`;纠错:`retract → record`;跨目标总览:`list`。
 
 所有命令是确定性 CLI(除 observe 的提取步骤由 Agent 执行);输出为 JSON(机器)+ 简明文本(人)。
 
@@ -466,15 +466,26 @@ critical 项排序时置顶。
 - 安全:若目标目录已存在 `goal.yaml`,**拒绝覆盖**。
 - 分工(INV-5):init 只搭骨架;**Agent 陪用户起草真实 requirements 与 rubric 锚点,用户确认后生效**——难度/目标/权重是用户的决策,不由工具代填。
 
+### 6.8 `goal list --root <dir>`
+
+跨目标总览(§3):枚举一个父目录下的所有 workspace,给出每个目标的 gap 概览。这是唯一的"多目标管理"命令。
+
+- 输入:`--root <dir>`——一个 goal workspace(自身含 `goal.yaml`)或多个 goal 的父目录;可选 `--json` 输出机器格式。
+- 行为:扫描 `--root` 直属子目录中含 `goal.yaml` 者为 workspace(若 `--root` 自身含 `goal.yaml` 则视其为单一目标),对每个读 `goal.yaml` 元数据 + `state/gap.json`(若已 assess),汇总 `requirements` 数、未达标(gap>0)项数、critical 未达标数、优先级最高的 top gap。未 assess 的目标标记 `unassessed`。
+- 排序:critical 未达标者置顶 → top gap priority 降序 → 未评估者垫底 → 按 `goal_id` 确定性 tiebreak。
+- **纯读、纯确定性**:只读 `goal.yaml` 与既有 `state/`,不写任何文件、不触发 assess,不在 INV-2 投影范围内(不重算数值,只复述最近一次 assess 的结果)。无 LLM 参与(INV-5)。
+
 ---
 
 ## 7. Agent 接入方式
 
 - 系统 = 结构化 CLI(确定性核心)+ Skill(场景 prompt)。不做 MCP Server,不做 UI。
-- v1 Skills(两个):
+- v1 Skills(四个):
   - `goal-init`:一次性建标——搭 workspace 骨架(§6.7),再陪用户把 `goal.yaml` 的 requirements 与 rubric 行为锚点起草成真实内容(用户确认后定稿)。
-  - `goal-optimizer`:`record → observe → assess → explain → next` 循环。其中 `observe` 是 §6.2 的提取角色、`next` 是 §6.5 的任务设计角色;`assess`/`explain` 是确定性 CLI,无需 LLM。
-- artifact 的产出(真实/模拟面试)在 skill 之外,由 `record` 事后登记——本系统不出题、不主持面试。
+  - `mock-drill`:主持一场模拟面试/自测,产出逐字、中立的 transcript,写进 `artifacts/` 后**强制交接 goal-log 入管**。是 §1 循环里 Execute 一步的落地。出题阶段不读 rubric 锚点/gap(防 teaching-to-test);**自身不判分**。
+  - `goal-log`:capture 摄取管道——`record → observe → assess`(外加纠错支线 `retract`)。任何 artifact(mock-drill 产的 / 用户贴的真实面试)的**唯一入管口**。其中 `observe` 是 §6.2 的盲提取角色(不加载历史分数);`assess` 是确定性 CLI。
+  - `goal-review`:review 复盘——`explain(证据链)+ next(下一步计划)`,外加 `list`(跨目标总览)。只在用户想看/想规划时才用,只读事实。`next` 是 §6.5 的任务设计角色;`explain`/`list` 是确定性 CLI。
+- 职责划分:**采集(mock-drill)/ 摄取打分(goal-log)/ 复盘规划(goal-review)** 分立。真人主持的真实/模拟面试仍在 skill 之外发生,由用户直接喂给 goal-log 事后登记——本系统不出题。mock-drill 是一个**可选的面试来源**,但一旦主持就**必经 goal-log 入管**(每场面试都要成为事实,不可选)。mock-drill 与 goal-log 分开不是为了阻断入管,而是为了把"出题"与"盲打分"隔开。
 - 反锚定:`observe` 阶段不加载任何历史分数或既有能力估计,防止提取被当前结论污染(即 INV-5「Agent 判语义、CLI 算数值」在提取步的落地)。
 - 未来 UI(如有)只是本地文件的 Viewer,不持有状态。
 
@@ -487,7 +498,7 @@ critical 项排序时置顶。
 - 单场景:后端系统设计面试
 - 六维能力向量 + 双值(score/confidence)
 - JSONL 事件溯源 + 确定性 estimator + 证据链 explain
-- 五命令闭环 + 两个 Skill(`goal-init` 建标、`goal-optimizer` 跑循环)
+- 五命令闭环 + 四个 Skill(`goal-init` 建标、`mock-drill` 产出表现、`goal-log` 摄取打分、`goal-review` 复盘规划)
 
 ### 不做(明确推迟)
 
