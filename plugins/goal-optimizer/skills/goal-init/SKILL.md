@@ -37,6 +37,8 @@ node <scripts>/goal.mjs init --workspace <新目录> [--title <t>] [--goal-id <i
 ### 3. 陪用户起草 rubric 行为锚点
 把 `rubric/<id>.yaml` 里每个 `capability × dimension` 的 `pass / partial / fail` 写成**可判定的行为描述**
 (observe 阶段就靠这些锚点对照原文判分)。锚点越具体、越可观测越好;含糊的锚点会让日后提取不稳定。
+v1 只用三个维度:`recall`(无提示能解释)、`application`(熟悉场景能用)、`transfer`(陌生场景能用)——
+它们是面试真正考的层级;不要引入 exposure/recognition/automaticity。
 同样是你起草、用户确认。
 
 ### 4. 定稿并 commit

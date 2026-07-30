@@ -310,7 +310,7 @@ rubric_version: ${rubricId}   # 指向 rubric/${rubricId}.yaml
 requirements:
   # 占位示例,请替换成你的真实目标(capability 必须在 rubric 中定义):
   - capability: example_capability
-    dimension: transfer        # exposure|recognition|recall|application|transfer|automaticity
+    dimension: transfer        # recall|application|transfer
     required: 0.75             # 目标水平 0-1
     weight: 0.9                # 重要度 0-1
     critical: true             # 门槛项:不达标则整体不达标
@@ -330,6 +330,10 @@ capabilities:
         pass: 无提示即能准确解释该能力的核心概念与关键机制
         partial: 提示后能解释,或解释遗漏关键点
         fail: 无法解释或存在原理性错误
+      - dimension: application
+        pass: 在熟悉/已知类型的场景中能正确运用并完成任务
+        partial: 能运用但有明显缺漏
+        fail: 熟悉场景中也无法正确运用
       - dimension: transfer
         pass: 在陌生场景中主动运用并给出正确方案
         partial: 能运用但方案有明显漏洞

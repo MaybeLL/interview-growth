@@ -98,18 +98,17 @@ Observe(记录表现) → Evaluate(评估能力) → Optimize(找最优行动) �
 
 ## 4. 数据契约
 
-### 4.1 能力维度(六维向量)
+### 4.1 能力维度(三维向量)
 
-每项能力 `k` 的状态是一个六维向量,不是单一分数:
+每项能力 `k` 的状态是一个三维向量,不是单一分数:
 
 | 维度 | key | 含义 | 典型证据 |
 |---|---|---|---|
-| 接触 | `exposure` | 见过、读过 | 阅读材料、看课程 |
-| 识别 | `recognition` | 能认出、能选对 | 选择题、判断题 |
 | 回忆 | `recall` | 无提示能解释 | 口头/书面解释概念 |
 | 应用 | `application` | 已知类型任务中能用 | 熟悉场景任务完成 |
 | 迁移 | `transfer` | 陌生场景中能用 | 变式/跨业务任务 |
-| 自动化 | `automaticity` | 限时低错误率稳定完成 | 限时反复表现 |
+
+> `dimension` 在引擎中是开放字符串(rubric 定义什么维度就认什么维度,引擎不写死枚举)。v1 只用上表三维——它们正是系统设计面试真正考的层级;`exposure`/`recognition`/`automaticity` 属行为日志或需限时数据校准的维度,推迟到 v2 且不预置锚点。
 
 约束:
 
@@ -505,7 +504,7 @@ critical 项排序时置顶。
 ### 做
 
 - 单场景:后端系统设计面试
-- 六维能力向量 + 双值(score/confidence)
+- 三维能力向量(recall/application/transfer)+ 双值(score/confidence)
 - JSONL 事件溯源 + 确定性 estimator + 证据链 explain
 - 五命令闭环 + 四个 Skill(`goal-init` 建标、`goal-grill` 产出表现、`goal-log` 摄取打分、`goal-review` 复盘规划)
 
