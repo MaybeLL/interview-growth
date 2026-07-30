@@ -1,0 +1,4 @@
+interface:
+  display_name: "Goal Grill"
+  short_description: "Run a mock interview / self-test and save a clean transcript, then hand it to goal-log to score"
+  default_prompt: "Use $goal-grill to run a mock interview on a topic and save the transcript to my goal workspace, then hand off to goal-log."

@@ -1,9 +1,9 @@
 ---
-name: mock-drill
-description: 主持一场模拟面试/自测,把完整问答逐字整理成一份干净、不含评价的 transcript 写进目标 workspace 的 artifacts/,然后必经 goal-log 入管(record→observe→assess)。当用户想做模拟面试、口头/系统设计自测、或需要一份可评估的表现记录却手头没有现成材料时使用。本 skill 主持面试并产出 artifact,但打分交给 goal-log 盲跑,自己绝不判分。
+name: goal-grill
+description: 主持一场模拟面试/自测,把完整问答逐字整理成一份干净、不含评价的 transcript 写进目标 workspace 的 artifacts/,然后必经 goal-log 入管(record→observe)。当用户想做模拟面试、口头/系统设计自测、或需要一份可评估的表现记录却手头没有现成材料时使用。本 skill 主持面试并产出 artifact,但打分交给 goal-log 盲跑,自己绝不判分。
 ---
 
-# Mock Drill(模拟陪练 —— 产出表现,必经 goal-log 入管)
+# Goal Grill(模拟陪练 —— 产出表现,必经 goal-log 入管)
 
 SPEC §1 的优化循环是 `Observe → Evaluate → Optimize → Execute → Observe...`。
 本 skill 负责 **Execute**:主持一场模拟面试/自测,产出一份**逐字、中立**的表现记录(artifact),
@@ -19,7 +19,7 @@ SPEC §1 的优化循环是 `Observe → Evaluate → Optimize → Execute → O
 - **打分不由本 skill 做。** 你不生成 pass/partial/fail、不写 observation。打分是 goal-log 的 `observe` 盲跑步骤
   (只看 transcript + rubric,不带入你主持时的印象)。transcript 里也**绝不写评语/参考答案/对错标注**。
 
-除此之外,本 skill **必须**触发 record 把这场面试记为事实(见第 4 步)——这是保证"每场都留痕"的必经步骤,而非越界。
+除此之外,本 skill **必须**把 artifact 交接给 goal-log 入管(见第 4 步)——record/observe 都由 goal-log 做;本 skill 不自己跑 record。交接是保证"每场都留痕"的必经步骤,而非越界。
 
 ## 前置
 
@@ -61,30 +61,28 @@ SPEC §1 的优化循环是 `Observe → Evaluate → Optimize → Execute → O
 要点:逐字或忠实转述,**不加评语、不加"参考答案"、不标注对错**。这份文件将被 record 计算 SHA-256 公证,
 之后不可篡改;所以确认成稿内容后再写盘。
 
-### 4. 入管(必经,不可跳过)
-artifact 写好后,**立即走 goal-log 的 capture 流程**(record → observe → assess),把这场面试变成事实并打分。
-你**如实**提供本次条件,record 命令如下(observe 盲打分与 assess 由 goal-log 负责):
+### 4. 交接入管(必经,不可跳过)
+artifact 写好后,**立即交接给 goal-log**,由它跑完整 capture(`record → observe`)。本 skill **不自己跑 record/observe**——
+写入与打分都归 goal-log(它是任何 artifact 的唯一入管口);这样"出题"与"盲打分"隔开,陪练证据不会被高估。
 
-```
-node <scripts>/goal.mjs record --workspace <ws> \
-  --type practice \            # agent 定向陪练用 practice(可靠性低于真实/mock 面试);真人真面才用 mock_interview/real_interview
-  --occurred-at <ISO8601> \
-  --topic <与本次一致的 topic> \
-  --difficulty <0-1 由用户如实声明> \
-  [--time-limit true] [--hints true] \   # 按第 1/2 步实际约定如实填
-  --evaluator agent \
-  --artifact artifacts/<...>.md
-```
+> **交接的 observe 必须在 fresh context 跑(结构性隔离):** 你(主持方)记得题目、也记得对方哪里露怯,
+> 若由**你这个上下文**顺手打分,就是自评、必然高估。所以交接时让 goal-log 用一个**全新上下文的子代理**盲打分
+> (只看 transcript + rubric),而不是在你主持的这轮对话里接着 observe。
 
-(`<scripts>` = 本 SKILL.md 上两级插件根的 `scripts/goal.mjs`。)
+交接时**如实**说明本次条件,供 goal-log 的 record 照填(不要美化):
 
-- 默认 `--type practice`:本 skill 产出的是 agent 主持的定向陪练,estimator 会按较低 `reliability` 折算,
-  避免陪练证据被当成真实面试。真人主持的真实/模拟面试才 record 为 `real_interview`/`mock_interview`。
-- `--hints` / `--time-limit` 必须如实——它们直接进入证据权重(independence 因子)。
-- 记录 + 盲打分完成后,只需简报"这场已留痕并打分"。**想看能力/差距/下一步用 goal-review**,别在这里长篇展示。
+- **topic**:与本次一致、且与该 workspace 历史命名统一的话题词(record 靠精确匹配派生 novelty)。
+- **type**:agent 主持的定向陪练 → `practice`(estimator 按较低 `reliability` 折算,避免被当真实面试);
+  真人主持的真实/模拟面试才是 `real_interview` / `mock_interview`。
+- **difficulty**:0–1,由用户如实声明。
+- **time_limit / hints**:按第 1/2 步的实际约定如实报——直接进证据权重(independence 因子),**绝不能美化**。
+- **duration**:实际耗时(分钟),便宜且事后不可补,顺手报上。
+- **evaluator**:`agent`;**artifact**:刚写的 `artifacts/<...>.md` 路径。
+
+交接完成后只需简报"这场已交给 goal-log 留痕并打分"。**想看能力/差距/下一步用 goal-review**,别在这里长篇展示。
 
 ## 不做
 
 - **出题阶段不读/不复述** rubric 锚点与 gap,避免 teaching-to-test。
-- **不自己判分、不写 observation**——打分是 goal-log 的盲跑步骤。
+- **不自己跑 record/observe、不写 observation**——摄取与盲打分全归 goal-log。
 - **不建标、不改 goal.yaml/rubric**——那是 goal-init 的职责;**不展示差距/不定计划**——那是 goal-review 的职责。

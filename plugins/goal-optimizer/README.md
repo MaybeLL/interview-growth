@@ -7,18 +7,24 @@ pays off most*.
 The core loop:
 
 ```
-record → observe → assess → explain → next
-记录表现   提取观测   聚合能力   解释证据链   定下一步
+write side (per performance)   read side (refresh when you look)
+record → observe          │    assess → explain → next
+记录表现   提取观测         │   聚合能力   解释证据链   定下一步
 ```
+
+`record → observe` is the write side — append-only facts. `assess` is a read-model refresh
+(a full recompute of `state/`), decoupled from intake: triggered lazily before you read, or
+once after a batch of intakes — never part of a single performance's write transaction.
 
 - **record** — log a performance (a mock interview, a practice answer) as an immutable
   fact. No scores here.
 - **observe** — the host agent reads the raw artifact and, guided by a rubric, extracts
   structured observations (pass/partial/fail + a line-referenced evidence quote). The
   agent never sees prior scores (anti-anchoring).
-- **assess** — a deterministic engine aggregates observations into per-`(capability,
-  dimension)` estimates with a **score** and a **confidence**, then compares against your
-  goal to produce a prioritized gap list. No LLM here.
+- **assess** — a read-model refresh: a deterministic engine aggregates all observations
+  into per-`(capability, dimension)` estimates with a **score** and a **confidence**, then
+  compares against your goal to produce a prioritized gap list. No LLM here; decoupled from
+  intake, refreshed before you read.
 - **explain** — shows exactly why a number is what it is: every supporting piece of
   evidence, its weight broken down factor-by-factor, and the line in the raw artifact it
   came from.
@@ -29,16 +35,17 @@ Four skills, one per moment of use:
 
 - **`goal-init`** (one-time) scaffolds a new goal workspace and co-drafts its requirements
   and rubric with you (you confirm the numbers).
-- **`mock-drill`** (optional) runs a mock interview / self-test, saves a clean, un-scored
+- **`goal-grill`** (optional) runs a mock interview / self-test, saves a clean, un-scored
   transcript into `artifacts/`, then **hands off to `goal-log` (mandatory)** — every drill
   becomes a recorded fact. It never reads the rubric or gaps while questioning
   (anti teaching-to-test) and never scores itself.
-- **`goal-log`** (after each performance) is the capture pipeline — `record → observe →
-  assess` — the single intake for any artifact (a drill's transcript or a real interview
-  you paste in). `observe` scores blind (no prior estimates loaded).
-- **`goal-review`** (when you want to look) reviews and plans — `explain` (evidence chain)
-  + `next` (a plan for the highest-priority gap), plus `list` for a cross-goal overview.
-  Read-only over facts; nothing is ingested here.
+- **`goal-log`** (after each performance) is the capture pipeline (write side) — `record →
+  observe` — the single intake for any artifact (a drill's transcript or a real interview
+  you paste in). `observe` scores blind (no prior estimates loaded). It does **not** run
+  `assess`: the projection refresh belongs to the read side (`goal-review`).
+- **`goal-review`** (when you want to look) is the read side — `assess` (refresh the
+  projection) → `explain` (evidence chain) + `next` (a plan for the highest-priority gap),
+  plus `list` for a cross-goal overview. Nothing is ingested here.
 
 ### Invariants
 

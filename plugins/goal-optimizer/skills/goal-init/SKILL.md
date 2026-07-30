@@ -1,12 +1,12 @@
 ---
 name: goal-init
-description: 为一个新目标搭建 workspace,并陪用户把 goal.yaml 的 requirements 和 rubric 行为锚点起草成真实内容(用户拍板)。当用户想开始练一个新方向、建立/初始化一个目标、定义要评估的能力维度和评分标准时使用。每个目标仅首次用一次;workspace 建好后改用 goal-optimizer skill 进入 record→next 循环。
+description: 为一个新目标搭建 workspace,并陪用户把 goal.yaml 的 requirements 和 rubric 行为锚点起草成真实内容(用户拍板)。当用户想开始练一个新方向、建立/初始化一个目标、定义要评估的能力维度和评分标准时使用。每个目标仅首次用一次;workspace 建好后,记录表现/纠错用 goal-log,看能力差距与定下一步用 goal-review。
 ---
 
 # Goal Init(为一个新目标搭 workspace)
 
 一次性的协同建标:`scaffold → 起草 requirements → 起草 rubric 锚点 → 用户确认 → commit`。
-建好后,后续的 record / observe / assess / explain / next 全部交给 **goal-optimizer** skill。
+建好后,后续 record / observe / retract 交给 **goal-log**(写入侧),assess / explain / next / list 交给 **goal-review**(读取侧)。
 
 **INV-5 分工红线:** `init` 只搭出中立骨架。**难度、目标值、权重、是否 critical 都是用户的决策**——
 你(Agent)负责起草、解释取舍、追问,但**不替用户拍板**。用户确认后才定稿。
@@ -21,7 +21,7 @@ node <scripts>/goal.mjs init --workspace <新目录> [--title <t>] [--goal-id <i
 ```
 
 - `--workspace` 是要搭建的目标目录(可尚不存在);`--goal-id` 默认取目录名,`--rubric` 默认 `<goal-id>-v0.1`。
-- 若目标目录已存在 `goal.yaml`,CLI **拒绝覆盖**——说明该 workspace 已建好,应改用 goal-optimizer,而不是重跑 init。
+- 若目标目录已存在 `goal.yaml`,CLI **拒绝覆盖**——说明该 workspace 已建好,应改用 goal-log(记录)/ goal-review(查看),而不是重跑 init。
 
 ## 工作流
 
@@ -43,9 +43,9 @@ node <scripts>/goal.mjs init --workspace <新目录> [--title <t>] [--goal-id <i
 用户确认后,`git add` 该 workspace 并提交。这是一个目标的起点——事实层(events/artifacts)从此只追加。
 
 ### 5. 交接
-告诉用户:workspace 已就绪,之后**记录表现、评估能力、看差距、定下一步**都用 **goal-optimizer** skill;
+告诉用户:workspace 已就绪,之后**记录表现**用 **goal-log**、**看能力/差距/定下一步**用 **goal-review**;
 不要再回到 goal-init(除非要另建一个全新目标)。
 
 ## 不做
-本 skill 只负责建标与协同起草。**不要在这里 record / observe / assess**——那是 goal-optimizer 的职责,
+本 skill 只负责建标与协同起草。**不要在这里 record / observe / assess**——record/observe 是 goal-log 的职责、assess 是 goal-review 的职责,
 且此时 workspace 尚无任何真实表现可评。

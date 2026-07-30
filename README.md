@@ -10,13 +10,17 @@
 核心循环:
 
 ```
-record → observe → assess → explain → next
-记录表现   提取观测   聚合能力   解释证据链   定下一步
+写入侧(每份表现)          读取侧(看结果时刷新)
+record → observe    │    assess → explain → next
+记录表现   提取观测   │   聚合能力   解释证据链   定下一步
 ```
+
+`record → observe` 是写入侧,只追加不可变事实。`assess` 是读模型刷新(全量重算 `state/`),
+与摄取解耦——看结果前懒触发或一批摄取后统一跑一次,不属于单份表现的写入事务。
 
 - **record** — 把一次表现(模拟面试、练习作答)登记为不可变的事实,不含任何评价。
 - **observe** — 宿主 Agent 读原始 artifact,按 rubric 提取结构化观测(pass/partial/fail + 指向具体行号的证据摘录);提取时看不到历史分数(防锚定)。
-- **assess** — 确定性引擎把观测聚合成每个 `(能力, 维度)` 的 **score** 与 **confidence**,再对比目标算出按优先级排序的差距。无 LLM 参与。
+- **assess** — 读模型刷新:确定性引擎把全部观测聚合成每个 `(能力, 维度)` 的 **score** 与 **confidence**,再对比目标算出按优先级排序的差距。无 LLM 参与;与摄取解耦,读取前刷新。
 - **explain** — 展示某个能力数字为什么是这个值:每条支撑证据、其权重的逐因子拆解、以及它出自 artifact 的哪一行。
 - **next** — 确定性地给出优先级最高的可行动缺口,Agent 据此设计至多 3 个 diagnose/train 任务。只排序,不编造提升数值。
 
@@ -72,7 +76,7 @@ claude plugin install goal-optimizer@maybell-plugins
 ```
 
 然后**完全退出并重开 Claude Code**——新 skill 只有整会话重启后才注册,`/reload-plugins` 不够。
-重启后应看到四个 skill:`goal-init` / `mock-drill` / `goal-log` / `goal-review`。
+重启后应看到四个 skill:`goal-init` / `goal-grill` / `goal-log` / `goal-review`。
 
 仍不出现时按此排查:
 

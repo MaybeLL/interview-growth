@@ -1,4 +1,4 @@
 interface:
   display_name: "Goal Log"
-  short_description: "Capture: record a performance, blind-score it against the rubric, and recompute state"
-  default_prompt: "Use $goal-log to record my latest performance as evidence, extract observations against the rubric, and update my capability state."
+  short_description: "Capture (write side): record a performance and blind-score it against the rubric"
+  default_prompt: "Use $goal-log to record my latest performance as evidence and extract observations against the rubric (goal-review refreshes the state when I look)."

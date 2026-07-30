@@ -6,7 +6,8 @@ description: 复盘(review)。查看当前能力估计与置信度、离目标�
 # Goal Review(review:看现状 → 解释证据 → 定下一步)
 
 只在**用户想看/想规划时**才用——它不摄取新表现,只读既有事实,呈现结论并设计行动。
-职责:`(刷新)assess → explain(证据链)→ next(下一步计划)`,外加 `list`(跨目标总览)。
+职责:`assess(刷新投影)→ explain(证据链)→ next(下一步计划)`,外加 `list`(跨目标总览)。
+本 skill 是事件溯源的**读取侧**:`assess` 的全量重算归这里(摄取侧 goal-log 不再跑),在读结果前把派生投影刷新到最新。
 
 **前置:** 目标 workspace 已建好且已有摄取数据(record→observe 由 **goal-log** 完成)。
 若还没有任何表现,先用 goal-log 摄取一份;此时 review 会显示冷启动基线(全 0 / 低置信 / diagnose)。
@@ -29,6 +30,8 @@ node <scripts>/goal.mjs list     --root <父目录> [--json]              # 跨�
 ## 工作流
 
 进来先跑一次 `assess`(幂等、便宜)保证 state 新鲜,再按用户想看的东西选下面的步骤。
+这一步是读模型刷新:goal-log 摄取时只追加事实、不重算,所以看结果前在这里统一刷新一次(N 份摄取也只此一次全量重算)。
+注意 `list` 是纯只读、**不触发 assess**,它显示的是最近一次 assess 的投影,可能略滞后于最新摄取;要看某目标的最新数值,先对它 `assess` 或走 explain/next。
 
 ### 1. explain —— 证据链可观测(系统不黑盒的证明)
 用户问"我现在什么水平""为什么这个分数"时:`explain <cap>.<dim>` 输出当前 score/confidence、离目标差距与 mode、
@@ -40,7 +43,7 @@ node <scripts>/goal.mjs list     --root <父目录> [--json]              # 跨�
    `diagnose`(置信度<0.4,证据不足,先设计**诊断型**任务补证据)/ `train`(证据够,设计**训练型**任务补分数)。
 2. 依短名单设计**至多 3 个**具体任务,每个含:`task`(做什么)、`targets`(冲哪些 capability×dimension,必须是 goal.yaml 里的 requirement)、`mode`、`rationale`(为什么是它、为什么这个 mode)、可选 `estimated_minutes`。
 3. 作为 JSON 数组从 stdin 传给 `next --write`,CLI 校验后写 `state/plan.json`。**不要编造"预计提升 +X"这类数值**——只排序 + 文字理由。
-4. 若某任务需要现场做一场模拟面试来采证据,提示用户可用 **mock-drill**(它会主持并自动交接 goal-log 入管)。
+4. 若某任务需要现场做一场模拟面试来采证据,提示用户可用 **goal-grill**(它会主持并自动交接 goal-log 入管)。
 
 ### 3. list —— 跨目标总览
 用户问"我几个目标都啥情况"时:`list --root <父目录>`,一屏看每个 workspace 的 requirements 数、未达标项、

@@ -601,8 +601,24 @@ function cmdObserve(positional, flags) {
     if (typeof d.result !== "number" || d.result < 0 || d.result > 1)
       die(`result must be a number in [0,1], got ${JSON.stringify(d.result)}`);
     if (!d.evidence || typeof d.evidence !== "string") die("evidence (string) is required");
-    if (!/#L\d+(-L\d+)?$/.test(String(d.artifact_ref || "")))
-      die(`artifact_ref must end with #L<n> or #L<n>-L<m>, got ${JSON.stringify(d.artifact_ref)}`);
+    // INV-3: the citation must point at a real, non-empty location inside one of
+    // this event's artifacts — not merely match a regex shape. We verify the path,
+    // the line range, and that the cited span actually contains text. (We do NOT
+    // force `evidence` to be a literal substring: §4.5 allows a paraphrase/概括.)
+    const ref = String(d.artifact_ref || "");
+    const rm = ref.match(/^(.*)#L(\d+)(?:-L(\d+))?$/);
+    if (!rm) die(`artifact_ref must be "<path>#L<n>" or "<path>#L<n>-L<m>", got ${JSON.stringify(d.artifact_ref)}`);
+    const refPath = rm[1];
+    const refStart = parseInt(rm[2], 10);
+    const refEnd = rm[3] ? parseInt(rm[3], 10) : refStart;
+    if (!ev.artifacts.includes(refPath))
+      die(`artifact_ref path "${refPath}" is not one of ${eventId}'s artifacts: ${ev.artifacts.join(", ")}`);
+    if (refEnd < refStart) die(`artifact_ref range end < start: ${ref}`);
+    const refLines = readFileSync(join(wsDir, refPath), "utf8").split("\n");
+    if (refStart < 1 || refEnd > refLines.length)
+      die(`artifact_ref lines ${refStart}-${refEnd} out of range (file has ${refLines.length} lines): ${ref}`);
+    if (refLines.slice(refStart - 1, refEnd).join("\n").trim() === "")
+      die(`artifact_ref ${ref} points at blank lines; cite the lines that actually contain the evidence`);
 
     const obs = {
       obs_id: nextId([...existing, ...toAppend], "obs_id", "obs_"),
@@ -627,14 +643,41 @@ function cmdObserve(positional, flags) {
 
 function activeObservations(observations, rubricVersion) {
   // Keep only the latest rubric version per (event_id, capability, dimension).
-  // In the demo all observations share one rubric version; this future-proofs it.
+  // "Latest" is compared NUMERICALLY (semver-ish), not lexically, so v0.10 > v0.2
+  // (a lexical string compare gets this backwards). Ties on version fall back to
+  // the later extracted_at, then to file order (append-only → deterministic).
   const latest = new Map();
   for (const o of observations) {
     const key = `${o.event_id}|${o.capability}|${o.dimension}`;
     const prev = latest.get(key);
-    if (!prev || String(o.rubric_version) >= String(prev.rubric_version)) latest.set(key, o);
+    if (!prev) {
+      latest.set(key, o);
+      continue;
+    }
+    const c = cmpVersion(o.rubric_version, prev.rubric_version);
+    if (c > 0 || (c === 0 && String(o.extracted_at ?? "") >= String(prev.extracted_at ?? ""))) {
+      latest.set(key, o);
+    }
   }
   return [...latest.values()];
+}
+
+// Compare two rubric-version strings by their trailing numeric components
+// (e.g. "system-design-v0.10" → [0,10]). Returns >0 if a is newer than b.
+function versionKey(v) {
+  const m = String(v ?? "").match(/(\d+(?:\.\d+)*)\s*$/);
+  return m ? m[1].split(".").map((n) => parseInt(n, 10)) : [];
+}
+function cmpVersion(a, b) {
+  const ka = versionKey(a);
+  const kb = versionKey(b);
+  const n = Math.max(ka.length, kb.length);
+  for (let i = 0; i < n; i++) {
+    const x = ka[i] ?? 0;
+    const y = kb[i] ?? 0;
+    if (x !== y) return x - y;
+  }
+  return 0;
 }
 
 function cmdAssess(flags) {

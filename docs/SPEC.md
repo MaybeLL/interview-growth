@@ -49,7 +49,7 @@ Observe(记录表现) → Evaluate(评估能力) → Optimize(找最优行动) �
 
 - **INV-1(事实不可变)** `artifacts/` 与 `data/events.jsonl` 只允许追加,永不覆盖、永不删除、永不改写。纠错的唯一路径是追加 `retraction` 事件(§4.4.3),而非修改历史。
 - **INV-2(投影可再生)** `state/` 中的**确定性投影**(`capability.json`、`gap.json`)整体可再生:`rm -rf state/ && goal assess` 必须从 events + observations 完整重建,结果逐字节一致(确定性)。`state/plan.json` 是 Agent 决策产物(§1.2 Gap→Plan),由 `goal next` 重建而非 assess,**不在逐字节保证范围内**。
-- **INV-3(证据链完整)** 每条 Observation 必须引用一个 event_id;每个 event 必须引用 artifact 路径并记录其内容哈希(`artifact_sha256`)。任何能力结论都能沿链回溯到原始表现文本,且原文被篡改时可被发现(读取时校验哈希,不匹配即报错)。
+- **INV-3(证据链完整)** 每条 Observation 必须引用一个 event_id;每个 event 必须引用 artifact 路径并记录其内容哈希(`artifact_sha256`)。Observation 的 `artifact_ref` 在 `observe --write` 时被校验为指向**该 event artifact 内真实存在、非空的行段**(不仅格式合法),引用无法凭空捏造。任何能力结论都能沿链回溯到原始表现文本,且原文被篡改时可被发现(读取时校验哈希,不匹配即报错)。
 - **INV-4(推断与事实皆带版本)** 每条 event 记录 schema 版本;每条 Observation 记录 rubric 版本 + 提取模型 + prompt 版本;每份 Projection 记录 estimator 版本 + 截止 event。能力数值变化必须能区分"用户变了"还是"评估标准变了"。event schema **只加字段、只加版本,永不改变旧字段语义**;旧数据就地保留原版本,永不迁移。
 - **INV-5(职责分离)** LLM 负责理解、结构化、解释;确定性引擎负责权重、聚合、衰减、置信度计算。LLM 永远不直接产出能力分数。
 - **INV-6(无外部依赖)** 全部状态存在纯文本文件(JSONL / YAML / JSON / Markdown)中。无数据库、无账号、无云同步。Git 即同步机制。
@@ -407,7 +407,15 @@ critical 项排序时置顶。
 
 ## 6. 命令契约
 
-闭环:`record → observe → assess → explain → next → record ...`;纠错:`retract → record`;跨目标总览:`list`。
+命令分两侧,对应 §1.2 的事实/推断与决策:
+
+- **写入侧(capture,只追加事实):** `record → observe`;纠错:`retract → record`。
+- **读取侧(materialize + review,读派生视图):** `assess(刷新投影)→ explain → next`;跨目标总览:`list`。
+
+**`assess` 是读模型刷新,不属于单次摄取事务(架构约束):** 它是对**全部** events + observations 的全量重算,产出 §4.6/§4.7 的派生投影,成本随总数据量增长而非随单份 artifact 增长。因此:
+
+- `record`/`observe` 一提交,事实即安全;`assess` 由**读取侧懒触发**(explain/next 前)或**一批摄取完成后统一执行一次**,而非每份 artifact 都全量重算。N 份 artifact 的摄取是 `record+observe ×N` 后 `assess ×1`。
+- `state/` 随时可 `rm -rf state/ && goal assess` 重建(INV-2),因此 `assess` 失败**绝不影响**已落地的事实——写入与投影解耦,是标准的事件溯源写入侧/读模型分离。
 
 所有命令是确定性 CLI(除 observe 的提取步骤由 Agent 执行);输出为 JSON(机器)+ 简明文本(人)。
 
@@ -424,15 +432,16 @@ critical 项排序时置顶。
 从表现中提取结构化观测。
 
 - 前置:校验 artifact 哈希与 event 记录一致(v2;不匹配即报错,INV-3),event 未被撤销。
-- 分工:CLI 输出该 event 的 artifact 内容 + 当前 rubric,**Agent(LLM)** 按 rubric anchor 生成 Observation 草稿,CLI 校验 schema(capability/dimension 在 rubric 中存在、result ∈ [0,1]、artifact_ref 格式合法)后追加写入 `observations.jsonl`。
-- LLM 不接触任何历史分数,只看本次 artifact + rubric(防锚定)。
+- 分工:CLI 输出该 event 的 artifact 内容 + 当前 rubric,**Agent(LLM)** 按 rubric anchor 生成 Observation 草稿,CLI 校验 schema(capability/dimension 在 rubric 中存在、result ∈ [0,1];`artifact_ref` 指向本 event 的 artifact 且行号真实存在、非空行)后追加写入 `observations.jsonl`。
+- LLM 不接触任何历史分数,只看本次 artifact + rubric(防锚定);且**必须在全新上下文执行**——不继承看过 `state/` 分数或主持过面试的上下文,否则反锚定失效(见 §7)。
 
 ### 6.3 `goal assess`
 
-重算能力投影。
+重算能力投影(读模型刷新)。
 
 - 行为:读全部 events + observations → 排除被撤销 event 及其 observations(§4.4.3)→ 按 §5 公式计算 → 覆写 `state/capability.json`、`state/gap.json`。
 - 纯确定性,无 LLM 参与(INV-5)。幂等:重复运行结果一致(INV-2)。
+- **与摄取解耦**:`assess` 不由 `record`/`observe` 触发,不属于单份 artifact 的写入事务(见 §6 开头)。它在读取前由读取侧(§6.4 explain / §6.6 next)懒触发,或在一批摄取后统一执行一次。`list`(§6.8)是纯只读、**不触发** assess,故其展示的是最近一次 assess 的投影,可能滞后于最新摄取(读模型的预期延迟);需要最新数值时对该目标先 `assess` 或走 review。
 
 ### 6.4 `goal explain <capability>[.<dimension>]`
 
@@ -482,11 +491,11 @@ critical 项排序时置顶。
 - 系统 = 结构化 CLI(确定性核心)+ Skill(场景 prompt)。不做 MCP Server,不做 UI。
 - v1 Skills(四个):
   - `goal-init`:一次性建标——搭 workspace 骨架(§6.7),再陪用户把 `goal.yaml` 的 requirements 与 rubric 行为锚点起草成真实内容(用户确认后定稿)。
-  - `mock-drill`:主持一场模拟面试/自测,产出逐字、中立的 transcript,写进 `artifacts/` 后**强制交接 goal-log 入管**。是 §1 循环里 Execute 一步的落地。出题阶段不读 rubric 锚点/gap(防 teaching-to-test);**自身不判分**。
-  - `goal-log`:capture 摄取管道——`record → observe → assess`(外加纠错支线 `retract`)。任何 artifact(mock-drill 产的 / 用户贴的真实面试)的**唯一入管口**。其中 `observe` 是 §6.2 的盲提取角色(不加载历史分数);`assess` 是确定性 CLI。
-  - `goal-review`:review 复盘——`explain(证据链)+ next(下一步计划)`,外加 `list`(跨目标总览)。只在用户想看/想规划时才用,只读事实。`next` 是 §6.5 的任务设计角色;`explain`/`list` 是确定性 CLI。
-- 职责划分:**采集(mock-drill)/ 摄取打分(goal-log)/ 复盘规划(goal-review)** 分立。真人主持的真实/模拟面试仍在 skill 之外发生,由用户直接喂给 goal-log 事后登记——本系统不出题。mock-drill 是一个**可选的面试来源**,但一旦主持就**必经 goal-log 入管**(每场面试都要成为事实,不可选)。mock-drill 与 goal-log 分开不是为了阻断入管,而是为了把"出题"与"盲打分"隔开。
-- 反锚定:`observe` 阶段不加载任何历史分数或既有能力估计,防止提取被当前结论污染(即 INV-5「Agent 判语义、CLI 算数值」在提取步的落地)。
+  - `goal-grill`:主持一场模拟面试/自测,产出逐字、中立的 transcript,写进 `artifacts/` 后**强制交接 goal-log 入管**。是 §1 循环里 Execute 一步的落地。出题阶段不读 rubric 锚点/gap(防 teaching-to-test);**自身不判分**。
+  - `goal-log`:capture 摄取管道(**写入侧,只追加事实**)——`record → observe`(外加纠错支线 `retract`)。任何 artifact(goal-grill 产的 / 用户贴的真实面试)的**唯一入管口**。其中 `observe` 是 §6.2 的盲提取角色(不加载历史分数)。**不跑 `assess`**——摄取只追加事实,全量重算属于读取侧(见 §6 开头的写入/读模型分离)。
+  - `goal-review`:review 复盘(**读取侧,投影刷新落点**)——`assess(先刷新投影)→ explain(证据链)→ next(下一步计划)`,外加 `list`(跨目标总览,只读、不触发 assess)。只在用户想看/想规划时才用,只读事实。`assess` 是 §6.3 的读模型刷新(幂等、便宜,保证读到最新状态);`next` 是 §6.6 的任务设计角色;`explain`/`list` 是确定性 CLI。
+- 职责划分:**采集(goal-grill)/ 摄取打分(goal-log,写入侧)/ 复盘规划(goal-review,读取侧)** 分立。能力投影的全量重算(assess)归读取侧:摄取只追加事实,看结果时才物化。真人主持的真实/模拟面试仍在 skill 之外发生,由用户直接喂给 goal-log 事后登记——本系统不出题。goal-grill 是一个**可选的面试来源**,但一旦主持就**必经 goal-log 入管**(每场面试都要成为事实,不可选)。goal-grill 与 goal-log 分开不是为了阻断入管,而是为了把"出题"与"盲打分"隔开。
+- 反锚定(靠上下文边界,不靠口头约定):`observe` 与 `grill` 是盲步骤,必须在**全新上下文**执行——`observe` 只拿 artifact + rubric,不继承任何看过 `state/` 分数或主持过面试的上下文。CLI 的 `observe` 不打印历史分数,但那只挡住输入侧;真正的隔离要求调用方为这两步开 fresh-context(如 fresh 子代理)。否则单一 agent 在同一上下文里既出题、又打分、又看分,隔离形同虚设。
 - 未来 UI(如有)只是本地文件的 Viewer,不持有状态。
 
 ---
@@ -498,7 +507,7 @@ critical 项排序时置顶。
 - 单场景:后端系统设计面试
 - 六维能力向量 + 双值(score/confidence)
 - JSONL 事件溯源 + 确定性 estimator + 证据链 explain
-- 五命令闭环 + 四个 Skill(`goal-init` 建标、`mock-drill` 产出表现、`goal-log` 摄取打分、`goal-review` 复盘规划)
+- 五命令闭环 + 四个 Skill(`goal-init` 建标、`goal-grill` 产出表现、`goal-log` 摄取打分、`goal-review` 复盘规划)
 
 ### 不做(明确推迟)
 

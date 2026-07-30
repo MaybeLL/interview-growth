@@ -29,12 +29,12 @@ jobs:
           node-version: "22"
 
       - name: Syntax check the CLI
-        run: node --check plugins/goal-optimizer/skills/goal-optimizer/scripts/goal.mjs
+        run: node --check plugins/goal-optimizer/scripts/goal.mjs
 
       - name: Recompute state and assert byte-identical (INV-2)
         run: |
           set -euo pipefail
-          SCRIPTS="$PWD/plugins/goal-optimizer/skills/goal-optimizer/scripts"
+          SCRIPTS="$PWD/plugins/goal-optimizer/scripts"
           SRC="$PWD/plugins/goal-optimizer/examples/backend-system-design"
           WS="$RUNNER_TEMP/ws"
           cp -R "$SRC" "$WS"
@@ -46,7 +46,7 @@ jobs:
       - name: Explain runs
         run: |
           set -euo pipefail
-          SCRIPTS="$PWD/plugins/goal-optimizer/skills/goal-optimizer/scripts"
+          SCRIPTS="$PWD/plugins/goal-optimizer/scripts"
           WS="$PWD/plugins/goal-optimizer/examples/backend-system-design"
           node "$SCRIPTS/goal.mjs" explain idempotency.transfer --workspace "$WS"
 
