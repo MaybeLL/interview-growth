@@ -5,7 +5,7 @@ description: 主持一场模拟面试/自测,把完整问答逐字整理成一�
 
 # Goal Grill(模拟陪练 —— 产出表现,必经 goal-log 入管)
 
-SPEC §1 的优化循环是 `Observe → Evaluate → Optimize → Execute → Observe...`。
+系统的优化循环是 `Observe → Evaluate → Optimize → Execute → Observe...`。
 本 skill 负责 **Execute**:主持一场模拟面试/自测,产出一份**逐字、中立**的表现记录(artifact),
 然后**强制交接 goal-log 入管**——每场面试都要成为不可变事实,这不是可选项。
 

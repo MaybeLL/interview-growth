@@ -9,7 +9,7 @@ description: 目标的全生命周期管理——新建、更新、删除、查�
 每个要到多高(`required`)、多重要(`weight`)、是否一票否决(`critical`)。它和 rubric 都是**人工定义、git 版本化**的,
 **本来就该边做边演进**——用户常在练的过程中才发现还需要补哪些能力。本 skill 就是所有"和目标定义打交道"的入口。
 
-**INV-5 分工红线:** 工具只搭中立骨架、只做机械校验。**难度、目标值、权重、是否 critical 都是用户的决策**——
+**分工红线(职责分离):** 工具只搭中立骨架、只做机械校验。**难度、目标值、权重、是否 critical 都是用户的决策**——
 你(Agent)负责起草、解释取舍、追问,但**不替用户拍板**。用户确认后才 commit 定稿。
 
 ## CLI 协议
@@ -45,7 +45,7 @@ node <scripts>/goal.mjs list --root <父目录> [--json]     # 枚举父目录�
 
 - **加/调 requirement**:编辑 `goal.yaml` 的 `requirements`(加一条、改 `required`/`weight`/`critical`)。
   依旧是你起草、用户拍板。改完 `git commit`;下次 `goal-review` 的 `assess` 会**自动纳入**新目标(gap.json 记录 `against: goal.yaml@<sha>`,始终知道对的是哪一版)。
-- **改 rubric**,按 INV-4 分两种:
+- **改 rubric**,分两种:
   - **纯新增能力/维度**(此前从未被观测过):可直接**追加**到当前 rubric 文件。
   - **修改已有锚点的语义**:rubric 一经引用即不可变,**必须新建版本文件**(如 `system-design-v0.2.yaml`),
     并把 `goal.yaml` 的 `rubric_version` 指向新版;旧 observation 保留旧版本引用,永不就地改写。
@@ -57,7 +57,7 @@ node <scripts>/goal.mjs list --root <父目录> [--json]     # 枚举父目录�
 
 - 归档(推荐):把 workspace 移出活跃父目录(或另建 `archive/` 收纳),`git commit`。
 - 彻底删除:`git rm -r <workspace>` 后 `git commit`;git 历史仍保留,可恢复。
-- **没有破坏性 CLI 命令**(符合 INV-1 事实不可变 / INV-6 文件即事实):删的是"你不再练的目标",不是篡改历史。删前与用户确认。
+- **没有破坏性 CLI 命令**(事实不可变、文件即事实源):删的是"你不再练的目标",不是篡改历史。删前与用户确认。
 
 ### 看 —— 查看目标
 
@@ -69,4 +69,4 @@ node <scripts>/goal.mjs list --root <父目录> [--json]     # 枚举父目录�
 ## 不做
 - **不 record / observe / assess**——record/observe 是 goal-log 的职责、assess/explain/next 是 goal-review 的职责,
   且建标时 workspace 尚无真实表现可评。
-- **不直接产出能力分数、不编造提升幅度**(INV-5):本 skill 只管目标定义与评分标准,不判分。
+- **不直接产出能力分数、不编造提升幅度**:本 skill 只管目标定义与评分标准,不判分。

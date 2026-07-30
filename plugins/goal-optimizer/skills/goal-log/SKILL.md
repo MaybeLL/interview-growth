@@ -13,7 +13,7 @@ description: 摄取管道(capture,写入侧)。把一次面试/练习表现登�
 
 **前置:** 目标 workspace 已由 **goal-manage** 建好。看结果(能力/差距/下一步)去 **goal-review**，别在这里做。
 
-**INV-5 分工红线:** 你(Agent)只做语义理解——按 rubric 判 pass/partial/fail、摘录证据。
+**分工红线(职责分离):** 你(Agent)只做语义理解——按 rubric 判 pass/partial/fail、摘录证据。
 所有数值(权重、聚合、置信度、差距)由 `goal.mjs` 确定性计算。**你永远不直接产出能力分数。**
 
 ## CLI 协议
@@ -97,4 +97,4 @@ observation JSON 形状:
 - **不重算能力状态(assess)**——那是读取侧(goal-review)的职责;摄取只追加事实。
 - **不展示差距、不设计下一步计划**——那是 goal-review 的职责。
 - **不建标、不改 goal.yaml/rubric**——那是 goal-manage 的职责。
-- observe 不加载历史分数(反锚定);数值一律由 CLI 计算(INV-5)。
+- observe 不加载历史分数(反锚定);数值一律由 CLI 计算。

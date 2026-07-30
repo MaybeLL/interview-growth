@@ -12,7 +12,7 @@ description: 复盘(review)。查看当前能力估计与置信度、离目标�
 **前置:** 目标 workspace 已建好且已有摄取数据(record→observe 由 **goal-log** 完成)。
 若还没有任何表现,先用 goal-log 摄取一份;此时 review 会显示冷启动基线(全 0 / 低置信 / diagnose)。
 
-**INV-5 分工红线:** 展示与排序的每个数字都由 `goal.mjs` 确定性计算,你只做措辞与任务设计,**不直接产出能力分数、不编造提升幅度**。
+**分工红线(职责分离):** 展示与排序的每个数字都由 `goal.mjs` 确定性计算,你只做措辞与任务设计,**不直接产出能力分数、不编造提升幅度**。
 
 ## CLI 协议
 
@@ -50,4 +50,4 @@ node <scripts>/goal.mjs next     --workspace <ws> --write              # 从 std
 ## 不做
 - **不摄取新表现**(record/observe)——那是 goal-log 的职责。
 - **不建标、不改 goal.yaml/rubric**——那是 goal-manage 的职责。
-- 不直接写能力分数、不编造 ΔCapability 数值(INV-5)。
+- 不直接写能力分数、不编造 ΔCapability 数值。
