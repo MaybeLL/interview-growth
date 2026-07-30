@@ -33,8 +33,10 @@ once after a batch of intakes — never part of a single performance's write tra
 
 Four skills, one per moment of use:
 
-- **`goal-init`** (one-time) scaffolds a new goal workspace and co-drafts its requirements
-  and rubric with you (you confirm the numbers).
+- **`goal-manage`** (goal lifecycle) creates a new goal workspace and co-drafts its
+  requirements and rubric with you (you confirm the numbers), and later updates, views,
+  or deletes goals as they evolve — requirements and rubric are a long-lived, git-versioned
+  target model.
 - **`goal-grill`** (optional) runs a mock interview / self-test, saves a clean, un-scored
   transcript into `artifacts/`, then **hands off to `goal-log` (mandatory)** — every drill
   becomes a recorded fact. It never reads the rubric or gaps while questioning
@@ -44,8 +46,8 @@ Four skills, one per moment of use:
   you paste in). `observe` scores blind (no prior estimates loaded). It does **not** run
   `assess`: the projection refresh belongs to the read side (`goal-review`).
 - **`goal-review`** (when you want to look) is the read side — `assess` (refresh the
-  projection) → `explain` (evidence chain) + `next` (a plan for the highest-priority gap),
-  plus `list` for a cross-goal overview. Nothing is ingested here.
+  projection) → `explain` (evidence chain) + `next` (a plan for the highest-priority gap).
+  Nothing is ingested here. (`list`, the cross-goal overview, lives in `goal-manage`.)
 
 ### Invariants
 

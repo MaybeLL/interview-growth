@@ -76,7 +76,7 @@ claude plugin install goal-optimizer@maybell-plugins
 ```
 
 然后**完全退出并重开 Claude Code**——新 skill 只有整会话重启后才注册,`/reload-plugins` 不够。
-重启后应看到四个 skill:`goal-init` / `goal-grill` / `goal-log` / `goal-review`。
+重启后应看到四个 skill:`goal-manage` / `goal-grill` / `goal-log` / `goal-review`。
 
 仍不出现时按此排查:
 

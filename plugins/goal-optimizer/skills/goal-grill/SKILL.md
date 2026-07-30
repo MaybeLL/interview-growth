@@ -23,8 +23,8 @@ SPEC §1 的优化循环是 `Observe → Evaluate → Optimize → Execute → O
 
 ## 前置
 
-假设目标 workspace 已由 **goal-init** 建好(存在 `<ws>/goal.yaml` 与 `<ws>/artifacts/`)。
-先与用户确认 workspace 路径。若尚未建目标,请改用 goal-init。
+假设目标 workspace 已由 **goal-manage** 建好(存在 `<ws>/goal.yaml` 与 `<ws>/artifacts/`)。
+先与用户确认 workspace 路径。若尚未建目标，请改用 goal-manage。
 
 ## 工作流
 
@@ -85,4 +85,4 @@ artifact 写好后,**立即交接给 goal-log**,由它跑完整 capture(`record 
 
 - **出题阶段不读/不复述** rubric 锚点与 gap,避免 teaching-to-test。
 - **不自己跑 record/observe、不写 observation**——摄取与盲打分全归 goal-log。
-- **不建标、不改 goal.yaml/rubric**——那是 goal-init 的职责;**不展示差距/不定计划**——那是 goal-review 的职责。
+- **不建标、不改 goal.yaml/rubric**——那是 goal-manage 的职责;**不展示差距/不定计划**——那是 goal-review 的职责。

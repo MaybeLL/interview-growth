@@ -1,0 +1,4 @@
+interface:
+  display_name: "Goal Manage"
+  short_description: "Create, update, delete, and view goals — their requirements and rubric anchors"
+  default_prompt: "Use $goal-manage to create a new goal workspace, or to update, view, or delete an existing goal's requirements and rubric anchors."

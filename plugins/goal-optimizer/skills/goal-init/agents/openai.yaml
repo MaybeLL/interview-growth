@@ -1,4 +1,0 @@
-interface:
-  display_name: "Goal Init"
-  short_description: "Scaffold a new goal workspace and co-draft its requirements + rubric with you"
-  default_prompt: "Use $goal-init to set up a new goal workspace, then help me draft its requirements and rubric anchors before I confirm them."

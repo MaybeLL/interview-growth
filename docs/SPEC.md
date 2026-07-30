@@ -489,10 +489,10 @@ critical 项排序时置顶。
 
 - 系统 = 结构化 CLI(确定性核心)+ Skill(场景 prompt)。不做 MCP Server,不做 UI。
 - v1 Skills(四个):
-  - `goal-init`:一次性建标——搭 workspace 骨架(§6.7),再陪用户把 `goal.yaml` 的 requirements 与 rubric 行为锚点起草成真实内容(用户确认后定稿)。
+  - `goal-manage`：目标全生命周期(建/改/删/看)——建时搭 workspace 骨架(§6.7)并陪用户起草 requirements 与 rubric 行为锚点(用户确认后定稿);中途可增删改 requirement / 修订 rubric(按 INV-4:纯新增可追加,改已有锚点语义开新版)/ 归档删除目标(删 workspace + git,无破坏性命令)/ 查看目标(`list` 跨目标总览,§6.8;及直接读 goal.yaml/rubric)。requirements/rubric 是 git 版本化、长期演进的目标模型。
   - `goal-grill`:主持一场模拟面试/自测,产出逐字、中立的 transcript,写进 `artifacts/` 后**强制交接 goal-log 入管**。是 §1 循环里 Execute 一步的落地。出题阶段不读 rubric 锚点/gap(防 teaching-to-test);**自身不判分**。
   - `goal-log`:capture 摄取管道(**写入侧,只追加事实**)——`record → observe`(外加纠错支线 `retract`)。任何 artifact(goal-grill 产的 / 用户贴的真实面试)的**唯一入管口**。其中 `observe` 是 §6.2 的盲提取角色(不加载历史分数)。**不跑 `assess`**——摄取只追加事实,全量重算属于读取侧(见 §6 开头的写入/读模型分离)。
-  - `goal-review`:review 复盘(**读取侧,投影刷新落点**)——`assess(先刷新投影)→ explain(证据链)→ next(下一步计划)`,外加 `list`(跨目标总览,只读、不触发 assess)。只在用户想看/想规划时才用,只读事实。`assess` 是 §6.3 的读模型刷新(幂等、便宜,保证读到最新状态);`next` 是 §6.6 的任务设计角色;`explain`/`list` 是确定性 CLI。
+  - `goal-review`:review 复盘(**读取侧,投影刷新落点**)——`assess(先刷新投影)→ explain(证据链)→ next(下一步计划)`。只在用户想看/想规划时才用,只读事实。`assess` 是 §6.3 的读模型刷新(幂等、便宜,保证读到最新状态);`next` 是 §6.6 的任务设计角色;`explain` 是确定性 CLI。跨目标总览 `list` 归 goal-manage。
 - 职责划分:**采集(goal-grill)/ 摄取打分(goal-log,写入侧)/ 复盘规划(goal-review,读取侧)** 分立。能力投影的全量重算(assess)归读取侧:摄取只追加事实,看结果时才物化。真人主持的真实/模拟面试仍在 skill 之外发生,由用户直接喂给 goal-log 事后登记——本系统不出题。goal-grill 是一个**可选的面试来源**,但一旦主持就**必经 goal-log 入管**(每场面试都要成为事实,不可选)。goal-grill 与 goal-log 分开不是为了阻断入管,而是为了把"出题"与"盲打分"隔开。
 - 反锚定(靠上下文边界,不靠口头约定):`observe` 与 `grill` 是盲步骤,必须在**全新上下文**执行——`observe` 只拿 artifact + rubric,不继承任何看过 `state/` 分数或主持过面试的上下文。CLI 的 `observe` 不打印历史分数,但那只挡住输入侧;真正的隔离要求调用方为这两步开 fresh-context(如 fresh 子代理)。否则单一 agent 在同一上下文里既出题、又打分、又看分,隔离形同虚设。
 - 未来 UI(如有)只是本地文件的 Viewer,不持有状态。
@@ -506,7 +506,7 @@ critical 项排序时置顶。
 - 单场景:后端系统设计面试
 - 三维能力向量(recall/application/transfer)+ 双值(score/confidence)
 - JSONL 事件溯源 + 确定性 estimator + 证据链 explain
-- 五命令闭环 + 四个 Skill(`goal-init` 建标、`goal-grill` 产出表现、`goal-log` 摄取打分、`goal-review` 复盘规划)
+- 五命令闭环 + 四个 Skill(`goal-manage` 目标管理、`goal-grill` 产出表现、`goal-log` 摄取打分、`goal-review` 复盘规划)
 
 ### 不做(明确推迟)
 
